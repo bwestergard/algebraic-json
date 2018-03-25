@@ -4,7 +4,10 @@
   "description": "Algebraic data types serialized and deserialized as JSON in Flow-typed Javascript.",
   "main": "lib/index.js",
   "scripts": {
-    "test": "mocha"
+    "test": "mocha",
+    "build": "./node_modules/.bin/babel src/ -d lib/",
+    "prepublish": "npm run build",
+    "flow": "flow"
   },
   "repository": {
     "type": "git",
@@ -25,5 +28,14 @@
   "bugs": {
     "url": "https://github.com/bwestergard/algebraic-json/issues"
   },
-  "homepage": "https://github.com/bwestergard/algebraic-json#readme"
+  "homepage": "https://github.com/bwestergard/algebraic-json#readme",
+  "dependencies": {
+    "minimal-result": "^1.0.0"
+  },
+  "devDependencies": {
+    "babel-cli": "^6.26.0",
+    "babel-preset-env": "^1.6.1",
+    "babel-preset-flow": "^6.23.0",
+    "flow-bin": "^0.68.0"
+  }
 }
