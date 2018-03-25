@@ -1,0 +1,29 @@
+{
+  "name": "algebraic-json",
+  "version": "0.0.1",
+  "description": "Algebraic data types serialized and deserialized as JSON in Flow-typed Javascript.",
+  "main": "lib/index.js",
+  "scripts": {
+    "test": "mocha"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bwestergard/algebraic-json.git"
+  },
+  "keywords": [
+    "flowtype",
+    "adt",
+    "algebraic",
+    "ocaml",
+    "reason",
+    "json",
+    "schema",
+    "jsonschema"
+  ],
+  "author": "Bjorn Westergard",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/bwestergard/algebraic-json/issues"
+  },
+  "homepage": "https://github.com/bwestergard/algebraic-json#readme"
+}
