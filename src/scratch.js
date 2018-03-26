@@ -1,6 +1,6 @@
 // @flow
 
-import { Ok, Err, andThen, mapOk, collectResultArrayIndexed, type Result } from './result'
+import { Ok, Err, andThen, mapOk, collectResultArrayIndexed, collectResultMap, type Result } from './result'
 
 // Extraction Error Types
 
@@ -21,9 +21,9 @@ type TypeAST =
 | {| type: 'boolean' |} // Ex
 | {| type: 'enum', variants: string[] |} // Ex
 | {| type: 'array', arg: TypeAST |} // Ex
-| {| type: 'dictionary', arg: TypeAST |}
-| {| type: 'tuple', fields: Array<TypeAST> |}
+| {| type: 'dictionary', arg: TypeAST |} // Ex
 | {| type: 'optional', arg: TypeAST |}
+| {| type: 'tuple', fields: Array<TypeAST> |}
 | {| type: 'record', attributes: AttributeDict |}
 | {| type: 'variant', tag: string, variants: {[tag: string]: AttributeDict } |}
 | {| type: 'reference', name: string |}
@@ -68,6 +68,14 @@ andThen(
 const extractMixedArray = (path: JSONPath, x: mixed): Result<Array<mixed>,ExtractionError> =>
 Array.isArray(x) && x !== null ? Ok(x) : Err({path, message: "Value is not an array."})
 
+const extractMixedObject = (path: JSONPath, x: mixed): Result<{[key: string]: mixed}, ExtractionError> =>
+x !== null &&
+typeof x === 'object'
+  ? !Array.isArray(x)
+    ? Ok(x)
+    : Err({path, message: `Expected an object, got an array.`})
+  : Err({path, message: `Expected an object to represent a dictionary, got a ${typeof x}.`})
+
 const extractArray = <T>(
   path: JSONPath,
   x: mixed,
@@ -78,6 +86,19 @@ andThen(
   (arr) => collectResultArrayIndexed(
     arr,
     (index, val) => extractor([...path, index], val)
+  )
+)
+
+const extractDictionary = <T>(
+  extractor: (path: JSONPath, x: mixed) => Result<T,ExtractionError>,
+  path: JSONPath,
+  x: mixed
+): Result<{[string]: T}, ExtractionError> =>
+andThen(
+  extractMixedObject(path, x),
+  (obj) => collectResultMap(
+    obj,
+    (key, val) => extractor([...path, key], val)
   )
 )
 
@@ -93,5 +114,5 @@ extractArray(
 
 console.log(
   'finalRes',
-  extractExampleArray(['examplePath'], ["foo", "bar", "foo", "bar", "baz"])
+  extractDictionary(extractNumber, ['examplePath'], JSON.parse(`{"a": 1, "b": "c"}`))
 )
