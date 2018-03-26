@@ -21,7 +21,7 @@ type TypeAST =
 | {| type: 'boolean' |} // Ex
 | {| type: 'enum', variants: string[] |} // Ex
 | {| type: 'array', arg: TypeAST |} // Ex
-| {| type: 'dictionary', arg: TypeAST |} // Ex
+| {| type: 'dictionary', arg: TypeAST |}
 | {| type: 'optional', arg: TypeAST |}
 | {| type: 'tuple', fields: Array<TypeAST> |}
 | {| type: 'record', attributes: AttributeDict |}
