@@ -1,75 +1,107 @@
 // @flow
 
+import { Ok, Err, andThen, mapOk, collectResultArrayIndexed, type Result } from './result'
+
+// Extraction Error Types
+
+type JSONPath = Array<string | number>
+
+type ExtractionError = {|
+  +path: JSONPath,
+  +message: string
+|}
+
+/// TypeAST
+
 type AttributeDict = { [attribute: string]: TypeAST }
 
 type TypeAST =
-| {| type: 'reference', name: string |}
-| {| type: 'string' |}
-| {| type: 'enum', variants: string[] |}
-| {| type: 'number' |}
-| {| type: 'boolean' |}
-| {| type: 'array', arg: TypeAST |}
+| {| type: 'string' |} // Ex
+| {| type: 'number' |} // Ex
+| {| type: 'boolean' |} // Ex
+| {| type: 'enum', variants: string[] |} // Ex
+| {| type: 'array', arg: TypeAST |} // Ex
 | {| type: 'dictionary', arg: TypeAST |}
 | {| type: 'tuple', fields: Array<TypeAST> |}
 | {| type: 'optional', arg: TypeAST |}
 | {| type: 'record', attributes: AttributeDict |}
 | {| type: 'variant', tag: string, variants: {[tag: string]: AttributeDict } |}
+| {| type: 'reference', name: string |}
 
 type NameSpace = {[typeVariableName: string]: TypeAST}
 
-const cons: NameSpace = {
-  "Cons": {
-    "type": "optional",
-    "arg": {"type": "record", "attributes": { "head": {"type": "string"}, "tail": {"type": "reference", "name": "Cons"}}}
-  }
-}
+/// Examples
 
-const tree: NameSpace = {
-  "Tree": {
-    "type": "optional",
-    "arg": {
-      "type": "record",
-      "attributes": {
-        "left": {"type": "reference", "name": "Tree"},
-        "right": {"type": "reference", "name": "Tree"}
-      }
+const extractString = (path: JSONPath, x: mixed): Result<string,ExtractionError> =>
+typeof x === 'string'
+  ? Ok(x)
+  : Err({path, message: `Value is of type ${typeof x}, not string.`})
+
+const extractNumber = (path: JSONPath, x: mixed): Result<number,ExtractionError> =>
+typeof x === 'number'
+  ? Ok(x)
+  : Err({path, message: `Value is of type ${typeof x}, not number.`})
+
+const extractBoolean = (path: JSONPath, x: mixed): Result<boolean,ExtractionError> =>
+x === true || x === false
+  ? Ok(x)
+  : Err({path, message: `Value is of type ${typeof x}, not boolean.`})
+
+type EnumExample = 'foo' | 'bar' | 'baz'
+const extractExampleEnum = (path: JSONPath, x: mixed): Result<EnumExample,ExtractionError> =>
+andThen(
+  extractString(path, x),
+  (s) => {
+    if (s === 'foo') {
+      return Ok(s)
     }
-  }
-}
-
-type Cons<T> =
-| { tag: "nil" }
-| { tag: "cons", head: T, tail: Cons<T> }
-
-const consList: Cons<string> = { tag: "cons", head: 'a', tail: { tag: "cons", head: 'b', tail: { tag: "nil" } } }
-
-const example: NameSpace = {
-  "Person": {
-    "type": "record",
-    "attributes": {
-      "name": { "type": "string" },
-      "age": { "type": "number" },
-      "contactMethods": {
-        "type": "array",
-        "arg": { "type": "reference", "name": "Contact" }
-      }
+    if (s === 'bar') {
+      return Ok(s)
     }
-  },
-  "Contact": {
-    "type": "variant",
-    "tag": "contactMethod",
-    "variants": {
-      "phone": {
-        "phoneNumber": { "type": "string" }
-      },
-      "email": {
-        "emailAddress": { "type": "string" }
-      },
-      "mailingAddress": {
-        "zip": { "type": "number" },
-        "street": { "type": "string" },
-        "state": { "type": "string" }
-      }
+    if (s === 'baz') {
+      return Ok(s)
     }
+    return Err({path, message: `String value "${s}" is not "foo", "bar", or "baz".`})
   }
-}
+)
+
+const extractMixedArray = (path: JSONPath, x: mixed): Result<Array<mixed>,ExtractionError> =>
+Array.isArray(x) && x !== null ? Ok(x) : Err({path, message: "Value is not an array."})
+
+const extractArray = <T>(
+  path: JSONPath,
+  x: mixed,
+  extractor: (path: JSONPath, x: mixed) => Result<T,ExtractionError>
+): Result<Array<T>, ExtractionError> =>
+andThen(
+  extractMixedArray(path, x),
+  (arr) => collectResultArrayIndexed(
+    arr,
+    (index, val) => extractor([...path, index], val)
+  )
+)
+
+const extractExampleArray = (
+  path: JSONPath,
+  xs: mixed
+): Result<EnumExample[], ExtractionError> =>
+extractArray(
+  path,
+  xs,
+  (path, x) => extractExampleEnum(path, x)
+)
+
+const extractExampleDictionary = (
+  path: JSONPath,
+  xs: mixed
+): Result<EnumExample[], ExtractionError> =>
+extractArray(
+  path,
+  xs,
+  (path, x) => extractExampleEnum(path, x)
+)
+
+console.log(
+  'finalRes',
+  extractExampleArray(['examplePath'], ["foo", "bar", "foo", "bar", "baz"])
+)
