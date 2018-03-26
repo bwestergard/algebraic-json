@@ -91,16 +91,6 @@ extractArray(
   (path, x) => extractExampleEnum(path, x)
 )
 
-const extractExampleDictionary = (
-  path: JSONPath,
-  xs: mixed
-): Result<EnumExample[], ExtractionError> =>
-extractArray(
-  path,
-  xs,
-  (path, x) => extractExampleEnum(path, x)
-)
-
 console.log(
   'finalRes',
   extractExampleArray(['examplePath'], ["foo", "bar", "foo", "bar", "baz"])
