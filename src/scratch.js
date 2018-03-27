@@ -21,7 +21,7 @@ type TypeAST =
 | {| type: 'boolean' |} // Prim
 | {| type: 'enum', variants: string[] |} // Ex
 | {| type: 'array', arg: TypeAST |} // Ex
-| {| type: 'optional', arg: TypeAST |}
+| {| type: 'optional', arg: TypeAST |} // Generic
 | {| type: 'dictionary', arg: TypeAST |}
 | {| type: 'tuple', fields: Array<TypeAST> |}
 | {| type: 'record', attributes: AttributeDict |}
@@ -83,6 +83,14 @@ andThen(
   )
 )
 
+const extractOptional = <T>(
+  extractor: (path: JSONPath, x: mixed) => Result<T,ExtractionError>,
+  path: JSONPath,
+  x: mixed
+): Result<T | null, ExtractionError> =>
+x === null
+  ? Ok(null)
+  : extractor(path, x)
 
 // Examples
 
