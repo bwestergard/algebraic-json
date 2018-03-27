@@ -23,7 +23,7 @@ type TypeAST =
 | {| type: 'array', arg: TypeAST |} // Ex
 | {| type: 'optional', arg: TypeAST |} // Generic
 | {| type: 'dictionary', arg: TypeAST |} // Ex
-| {| type: 'tuple', fields: Array<TypeAST> |}
+| {| type: 'tuple', fields: Array<TypeAST> |} // Ex
 | {| type: 'record', attributes: AttributeDict |}
 | {| type: 'variant', tag: string, variants: {[tag: string]: AttributeDict } |}
 | {| type: 'reference', name: string |}
