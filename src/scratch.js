@@ -21,8 +21,8 @@ type TypeAST =
 | {| type: 'boolean' |} // Prim
 | {| type: 'enum', variants: string[] |} // Ex
 | {| type: 'array', arg: TypeAST |} // Ex
-| {| type: 'dictionary', arg: TypeAST |}
 | {| type: 'optional', arg: TypeAST |}
+| {| type: 'dictionary', arg: TypeAST |}
 | {| type: 'tuple', fields: Array<TypeAST> |}
 | {| type: 'record', attributes: AttributeDict |}
 | {| type: 'variant', tag: string, variants: {[tag: string]: AttributeDict } |}
