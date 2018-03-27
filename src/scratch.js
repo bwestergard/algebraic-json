@@ -16,9 +16,9 @@ type ExtractionError = {|
 type AttributeDict = { [attribute: string]: TypeAST }
 
 type TypeAST =
-| {| type: 'string' |} // Ex
-| {| type: 'number' |} // Ex
-| {| type: 'boolean' |} // Ex
+| {| type: 'string' |} // Prim
+| {| type: 'number' |} // Prim
+| {| type: 'boolean' |} // Prim
 | {| type: 'enum', variants: string[] |} // Ex
 | {| type: 'array', arg: TypeAST |} // Ex
 | {| type: 'dictionary', arg: TypeAST |}
@@ -30,7 +30,7 @@ type TypeAST =
 
 type NameSpace = {[typeVariableName: string]: TypeAST}
 
-/// Examples
+// Generic
 
 const extractString = (path: JSONPath, x: mixed): Result<string,ExtractionError> =>
 typeof x === 'string'
@@ -47,30 +47,11 @@ x === true || x === false
   ? Ok(x)
   : Err({path, message: `Value is of type ${typeof x}, not boolean.`})
 
-type EnumExample = 'foo' | 'bar' | 'baz'
-const extractExampleEnum = (path: JSONPath, x: mixed): Result<EnumExample,ExtractionError> =>
-andThen(
-  extractString(path, x),
-  (s) => {
-    if (s === 'foo') {
-      return Ok(s)
-    }
-    if (s === 'bar') {
-      return Ok(s)
-    }
-    if (s === 'baz') {
-      return Ok(s)
-    }
-    return Err({path, message: `String value "${s}" is not "foo", "bar", or "baz".`})
-  }
-)
-
 const extractMixedArray = (path: JSONPath, x: mixed): Result<Array<mixed>,ExtractionError> =>
 Array.isArray(x) && x !== null ? Ok(x) : Err({path, message: "Value is not an array."})
 
 const extractMixedObject = (path: JSONPath, x: mixed): Result<{[key: string]: mixed}, ExtractionError> =>
-x !== null &&
-typeof x === 'object'
+x !== null && typeof x === 'object'
   ? !Array.isArray(x)
     ? Ok(x)
     : Err({path, message: `Expected an object, got an array.`})
@@ -100,6 +81,27 @@ andThen(
     obj,
     (key, val) => extractor([...path, key], val)
   )
+)
+
+
+// Examples
+
+type EnumExample = 'foo' | 'bar' | 'baz'
+const extractExampleEnum = (path: JSONPath, x: mixed): Result<EnumExample,ExtractionError> =>
+andThen(
+  extractString(path, x),
+  (s) => {
+    if (s === 'foo') {
+      return Ok(s)
+    }
+    if (s === 'bar') {
+      return Ok(s)
+    }
+    if (s === 'baz') {
+      return Ok(s)
+    }
+    return Err({path, message: `String value "${s}" is not "foo", "bar", or "baz".`})
+  }
 )
 
 const extractExampleArray = (
