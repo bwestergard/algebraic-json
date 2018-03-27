@@ -132,7 +132,29 @@ extractDictionary(
   xs
 )
 
+const extractExampleTuple = (
+  path: JSONPath,
+  x: mixed
+): Result<[EnumExample, number, string], ExtractionError> => {
+  if (Array.isArray(x)) {
+    const res0 = extractExampleEnum([...path, 0], x[0])
+    const res1 = extractNumber([...path, 1], x[1])
+    const res2 = extractString([...path, 2], x[2])
+    return andThen(
+      extractExampleEnum([...path, 0], x[0]),
+      (el0) => andThen(
+        res1,
+        (el1) => andThen(
+          res2,
+          (el2) => Ok([el0, el1, el2])
+        )
+      )
+    )
+  }
+  return Err({path, message: `Expected an array, got a ${typeof x}.`})
+}
+
 console.log(
   'finalRes',
-  extractExampleDictionary(['examplePath'], JSON.parse(`{"a": "foo", "asdfb": "bar"}`))
+  extractArray(extractExampleTuple, [], JSON.parse(`[["foo", 3, "3"]]`))
 )
