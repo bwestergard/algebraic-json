@@ -22,7 +22,7 @@ type TypeAST =
 | {| type: 'enum', variants: string[] |} // Ex
 | {| type: 'array', arg: TypeAST |} // Ex
 | {| type: 'optional', arg: TypeAST |} // Generic
-| {| type: 'dictionary', arg: TypeAST |}
+| {| type: 'dictionary', arg: TypeAST |} // Ex
 | {| type: 'tuple', fields: Array<TypeAST> |}
 | {| type: 'record', attributes: AttributeDict |}
 | {| type: 'variant', tag: string, variants: {[tag: string]: AttributeDict } |}
@@ -58,9 +58,9 @@ x !== null && typeof x === 'object'
   : Err({path, message: `Expected an object to represent a dictionary, got a ${typeof x}.`})
 
 const extractArray = <T>(
+  extractor: (path: JSONPath, x: mixed) => Result<T,ExtractionError>,
   path: JSONPath,
-  x: mixed,
-  extractor: (path: JSONPath, x: mixed) => Result<T,ExtractionError>
+  x: mixed
 ): Result<Array<T>, ExtractionError> =>
 andThen(
   extractMixedArray(path, x),
@@ -117,12 +117,22 @@ const extractExampleArray = (
   xs: mixed
 ): Result<EnumExample[], ExtractionError> =>
 extractArray(
+  extractExampleEnum,
   path,
-  xs,
-  (path, x) => extractExampleEnum(path, x)
+  xs
+)
+
+const extractExampleDictionary = (
+  path: JSONPath,
+  xs: mixed
+): Result<{[string]: EnumExample}, ExtractionError> =>
+extractDictionary(
+  extractExampleEnum,
+  path,
+  xs
 )
 
 console.log(
   'finalRes',
-  extractDictionary(extractNumber, ['examplePath'], JSON.parse(`{"a": 1, "b": "c"}`))
+  extractExampleDictionary(['examplePath'], JSON.parse(`{"a": "foo", "asdfb": "bar"}`))
 )
