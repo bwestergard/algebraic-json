@@ -141,7 +141,7 @@ const extractExampleTuple = (
     const res1 = extractNumber([...path, 1], x[1])
     const res2 = extractString([...path, 2], x[2])
     return andThen(
-      extractExampleEnum([...path, 0], x[0]),
+      res0,
       (el0) => andThen(
         res1,
         (el1) => andThen(
@@ -153,6 +153,24 @@ const extractExampleTuple = (
   }
   return Err({path, message: `Expected an array, got a ${typeof x}.`})
 }
+
+const extractExampleRecord = (
+  path: JSONPath,
+  x: mixed
+): Result<{a: EnumExample, b: EnumExample, c: boolean | null, d?: number}, ExtractionError> =>
+andThen(
+  extractMixedObject(path, x),
+  (obj) => andThen(
+    extractExampleEnum([...path, 'a'], obj.a),
+    (a) => andThen(
+      extractExampleEnum([...path, 'b'], obj.b),
+      (b) => andThen(
+        extractOptional(extractBoolean, [...path, 'c'], obj.c),
+        (c) => Ok({a, b, c})
+      )
+    )
+  )
+)
 
 console.log(
   'finalRes',
