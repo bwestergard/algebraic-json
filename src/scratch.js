@@ -21,7 +21,7 @@ type TypeAST =
 | {| type: 'boolean' |} // Prim
 | {| type: 'enum', variants: string[] |} // Ex
 | {| type: 'array', arg: TypeAST |} // Ex
-| {| type: 'optional', arg: TypeAST |} // Generic
+| {| type: 'nullable', arg: TypeAST |} // Generic
 | {| type: 'dictionary', arg: TypeAST |} // Ex
 | {| type: 'tuple', fields: Array<TypeAST> |} // Ex
 | {| type: 'record', attributes: AttributeDict |}
@@ -83,7 +83,7 @@ andThen(
   )
 )
 
-const extractOptional = <T>(
+const extractNullable = <T>(
   extractor: (path: JSONPath, x: mixed) => Result<T,ExtractionError>,
   path: JSONPath,
   x: mixed
@@ -99,13 +99,7 @@ const extractExampleEnum = (path: JSONPath, x: mixed): Result<EnumExample,Extrac
 andThen(
   extractString(path, x),
   (s) => {
-    if (s === 'foo') {
-      return Ok(s)
-    }
-    if (s === 'bar') {
-      return Ok(s)
-    }
-    if (s === 'baz') {
+    if (s === 'foo' || s === 'bar' || s === 'baz') {
       return Ok(s)
     }
     return Err({path, message: `String value "${s}" is not "foo", "bar", or "baz".`})
@@ -154,19 +148,54 @@ const extractExampleTuple = (
   return Err({path, message: `Expected an array, got a ${typeof x}.`})
 }
 
+// const checkOptional = <T>(
+//   extractor: (path: JSONPath, x: mixed) => Result<T,ExtractionError>,
+//   acc: *,
+//   key: string,
+//   obj: {[string]: mixed},
+// ): Result<T,ExtractionError> =>
+// obj.hasOwnProperty(key)
+//   ? andThen(
+//     extractNumber([...path, key], obj[key]),
+//     (d) => Ok({...acc, d})
+//   )
+//   : Ok(acc)
+
 const extractExampleRecord = (
   path: JSONPath,
   x: mixed
-): Result<{a: EnumExample, b: EnumExample, c: boolean | null, d?: number}, ExtractionError> =>
+): Result<{a: EnumExample, b: EnumExample, c: boolean | null, d?: number, e?: number}, ExtractionError> =>
 andThen(
   extractMixedObject(path, x),
   (obj) => andThen(
-    extractExampleEnum([...path, 'a'], obj.a),
+    extractExampleEnum([...path, 'a'], obj.a), // TODO not throwing absent key errors
     (a) => andThen(
       extractExampleEnum([...path, 'b'], obj.b),
       (b) => andThen(
-        extractOptional(extractBoolean, [...path, 'c'], obj.c),
-        (c) => Ok({a, b, c})
+        extractNullable(extractBoolean, [...path, 'c'], obj.c),
+        (c) => {
+          let rec = {a, b, c}
+
+          if (obj.hasOwnProperty('d')) {
+            const res = extractNumber([...path, 'd'], obj.d)
+            if (res.tag === 'Ok') {
+              rec = {...rec, d: res.data}
+            } else {
+              return res
+            }
+          }
+
+          if (obj.hasOwnProperty('e')) {
+            const res = extractNumber([...path, 'e'], obj.e)
+            if (res.tag === 'Ok') {
+              rec = {...rec, e: res.data}
+            } else {
+              return res
+            }
+          }
+
+          return Ok(rec)
+        }
       )
     )
   )
@@ -174,5 +203,5 @@ andThen(
 
 console.log(
   'finalRes',
-  extractArray(extractExampleTuple, [], JSON.parse(`[["foo", 3, "3"]]`))
+  extractArray(extractExampleRecord, [], JSON.parse(`[{"d": "foo", "b": "bar", "c": true}]`))
 )
