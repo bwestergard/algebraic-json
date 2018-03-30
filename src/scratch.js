@@ -161,6 +161,16 @@ const extractExampleTuple = (
 //   )
 //   : Ok(acc)
 
+const extractFromKey = <T>(
+  extractor: (path: JSONPath, x: mixed) => Result<T,ExtractionError>,
+  path: JSONPath,
+  key: string,
+  obj: {[string]: mixed}
+): Result<T,ExtractionError> =>
+obj.hasOwnProperty(key)
+  ? extractor([...path, key], obj[key])
+  : Err({path, message: `Expected key "${key}" is not present.`})
+
 const extractExampleRecord = (
   path: JSONPath,
   x: mixed
@@ -168,9 +178,9 @@ const extractExampleRecord = (
 andThen(
   extractMixedObject(path, x),
   (obj) => andThen(
-    extractExampleEnum([...path, 'a'], obj.a), // TODO not throwing absent key errors
+    extractFromKey(extractExampleEnum, path, 'a', obj),
     (a) => andThen(
-      extractExampleEnum([...path, 'b'], obj.b),
+      extractFromKey(extractExampleEnum, path, 'b', obj),
       (b) => andThen(
         extractNullable(extractBoolean, [...path, 'c'], obj.c),
         (c) => {
@@ -203,5 +213,5 @@ andThen(
 
 console.log(
   'finalRes',
-  extractArray(extractExampleRecord, [], JSON.parse(`[{"d": "foo", "b": "bar", "c": true}]`))
+  extractArray(extractExampleRecord, [], JSON.parse(`[{"e": 3, "b": "bar", "c": true, "a": "foo"}]`))
 )
