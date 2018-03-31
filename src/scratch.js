@@ -25,7 +25,7 @@ type TypeAST =
 | {| type: 'dictionary', arg: TypeAST |} // Ex
 | {| type: 'tuple', fields: Array<TypeAST> |} // Ex
 | {| type: 'record', attributes: AttributeDict |} // Ex
-| {| type: 'variant', tag: string, variants: {[tag: string]: AttributeDict } |} // Ex
+| {| type: 'union', tag: string, variants: {[tag: string]: AttributeDict } |} // Ex
 | {| type: 'reference', name: string |}
 
 type NameSpace = {[typeVariableName: string]: TypeAST}
@@ -150,19 +150,6 @@ const extractExampleTuple = (
   }
   return Err({path, message: `Expected an array, got a ${typeof x}.`})
 }
-
-// const checkOptional = <T>(
-//   extractor: (path: JSONPath, x: mixed) => Result<T,ExtractionError>,
-//   acc: *,
-//   key: string,
-//   obj: {[string]: mixed},
-// ): Result<T,ExtractionError> =>
-// obj.hasOwnProperty(key)
-//   ? andThen(
-//     extractNumber([...path, key], obj[key]),
-//     (d) => Ok({...acc, d})
-//   )
-//   : Ok(acc)
 
 const extractFromKey = <T>(
   extractor: (path: JSONPath, x: mixed) => Result<T,ExtractionError>,
