@@ -201,33 +201,6 @@ andThen(
   )
 )
 
-const extractCitizen_bourgeois = (
-  path: JSONPath,
-  x: mixed
-): Result<*, ExtractionError> =>
-andThen(
-  extractMixedObject(path, x),
-  (obj) => andThen(
-    extractFromKey(extractNumber, path, 'wageIncome', obj),
-    (wageIncome) => andThen(
-      extractFromKey(extractNumber, path, 'capitalIncome', obj),
-      (capitalIncome) => Ok({socialClass: 'bourgeois', wageIncome, capitalIncome})
-    )
-  )
-)
-
-const extractCitizen_proletarian = (
-  path: JSONPath,
-  x: mixed
-): Result<*, ExtractionError> =>
-andThen(
-  extractMixedObject(path, x),
-  (obj) => andThen(
-    extractFromKey(extractNumber, path, 'wageIncome', obj),
-    (wageIncome) => Ok({socialClass: 'proletarian', wageIncome})
-  )
-)
-
 type Citizen =
 | {|
   socialClass: 'bourgeois',
@@ -242,24 +215,52 @@ type Citizen =
 const extractCitizen = (
   path: JSONPath,
   x: mixed
-): Result<Citizen, ExtractionError> =>
-andThen(
-  extractMixedObject(path, x),
-  (obj) => andThen(
-    extractFromKey(extractString, path, 'socialClass', obj),
-    (socialClass) => {
-      if (socialClass === 'bourgeois') {
-        return extractCitizen_bourgeois(path, obj)
-      }
-      if (socialClass === 'proletarian') {
-        return extractCitizen_proletarian(path, x)
-      }
-      return Err({path: [...path, "socialClass"], message: `Expected one of the following: "bourgeois", "proletarian". Received ${socialClass}.`})
-    }
+): Result<Citizen, ExtractionError> => {
+  const bourgeois = (
+    path: JSONPath,
+    x: mixed
+  ): Result<*, ExtractionError> =>
+  andThen(
+    extractMixedObject(path, x),
+    (obj) => andThen(
+      extractFromKey(extractNumber, path, 'wageIncome', obj),
+      (wageIncome) => andThen(
+        extractFromKey(extractNumber, path, 'capitalIncome', obj),
+        (capitalIncome) => Ok({socialClass: 'bourgeois', wageIncome, capitalIncome})
+      )
+    )
   )
-)
+
+  const proletarian = (
+    path: JSONPath,
+    x: mixed
+  ): Result<*, ExtractionError> =>
+  andThen(
+    extractMixedObject(path, x),
+    (obj) => andThen(
+      extractFromKey(extractNumber, path, 'wageIncome', obj),
+      (wageIncome) => Ok({socialClass: 'proletarian', wageIncome})
+    )
+  )
+
+  return andThen(
+    extractMixedObject(path, x),
+    (obj) => andThen(
+      extractFromKey(extractString, path, 'socialClass', obj),
+      (socialClass) => {
+        if (socialClass === 'bourgeois') {
+          return bourgeois(path, obj)
+        }
+        if (socialClass === 'proletarian') {
+          return proletarian(path, x)
+        }
+        return Err({path: [...path, "socialClass"], message: `Expected one of the following: "bourgeois", "proletarian". Received "${socialClass}".`})
+      }
+    )
+  )
+}
 
 console.log(
   'finalRes',
-  extractArray(extractCitizen, [], JSON.parse(`[{"socialClass": "proletariat", "wageIncome": 300, "capitalIncome": 300}]`))
+  extractArray(extractCitizen, [], JSON.parse(`[{"socialClass": "proletarian", "wageIncome": 300}, {"socialClass": "bourgeois", "wageIncome": 0, "capitalIncome": 2342400}]`))
 )
