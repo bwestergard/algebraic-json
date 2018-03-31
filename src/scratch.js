@@ -24,8 +24,8 @@ type TypeAST =
 | {| type: 'nullable', arg: TypeAST |} // Generic
 | {| type: 'dictionary', arg: TypeAST |} // Ex
 | {| type: 'tuple', fields: Array<TypeAST> |} // Ex
-| {| type: 'record', attributes: AttributeDict |}
-| {| type: 'variant', tag: string, variants: {[tag: string]: AttributeDict } |}
+| {| type: 'record', attributes: AttributeDict |} // Ex
+| {| type: 'variant', tag: string, variants: {[tag: string]: AttributeDict } |} // Ex
 | {| type: 'reference', name: string |}
 
 type NameSpace = {[typeVariableName: string]: TypeAST}
@@ -131,6 +131,9 @@ const extractExampleTuple = (
   x: mixed
 ): Result<[EnumExample, number, string], ExtractionError> => {
   if (Array.isArray(x)) {
+    if (x.length !== 3) {
+      return Err({path, message: `Expected 3 elements, received ${x.length}.`})
+    }
     const res0 = extractExampleEnum([...path, 0], x[0])
     const res1 = extractNumber([...path, 1], x[1])
     const res2 = extractString([...path, 2], x[2])
@@ -211,7 +214,65 @@ andThen(
   )
 )
 
+const extractCitizen_bourgeois = (
+  path: JSONPath,
+  x: mixed
+): Result<*, ExtractionError> =>
+andThen(
+  extractMixedObject(path, x),
+  (obj) => andThen(
+    extractFromKey(extractNumber, path, 'wageIncome', obj),
+    (wageIncome) => andThen(
+      extractFromKey(extractNumber, path, 'capitalIncome', obj),
+      (capitalIncome) => Ok({socialClass: 'bourgeois', wageIncome, capitalIncome})
+    )
+  )
+)
+
+const extractCitizen_proletarian = (
+  path: JSONPath,
+  x: mixed
+): Result<*, ExtractionError> =>
+andThen(
+  extractMixedObject(path, x),
+  (obj) => andThen(
+    extractFromKey(extractNumber, path, 'wageIncome', obj),
+    (wageIncome) => Ok({socialClass: 'proletarian', wageIncome})
+  )
+)
+
+type Citizen =
+| {|
+  socialClass: 'bourgeois',
+  wageIncome: number,
+  capitalIncome: number
+|}
+| {|
+  socialClass: 'proletarian',
+  wageIncome: number
+|}
+
+const extractCitizen = (
+  path: JSONPath,
+  x: mixed
+): Result<Citizen, ExtractionError> =>
+andThen(
+  extractMixedObject(path, x),
+  (obj) => andThen(
+    extractFromKey(extractString, path, 'socialClass', obj),
+    (socialClass) => {
+      if (socialClass === 'bourgeois') {
+        return extractCitizen_bourgeois(path, obj)
+      }
+      if (socialClass === 'proletarian') {
+        return extractCitizen_proletarian(path, x)
+      }
+      return Err({path: [...path, "socialClass"], message: `Expected one of the following: "bourgeois", "proletarian". Received ${socialClass}.`})
+    }
+  )
+)
+
 console.log(
   'finalRes',
-  extractArray(extractExampleRecord, [], JSON.parse(`[{"e": 3, "b": "bar", "c": true, "a": "foo"}]`))
+  extractArray(extractCitizen, [], JSON.parse(`[{"socialClass": "proletariat", "wageIncome": 300, "capitalIncome": 300}]`))
 )
