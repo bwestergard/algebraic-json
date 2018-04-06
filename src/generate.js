@@ -2,6 +2,7 @@
 
 import { reduce, toPairs } from './springbok'
 import { type TypeDeclarations, type TypeAST, type TypeTag } from './ast'
+import { indent } from './stringUtils'
 
 type PrimitiveSet = {[$PropertyType<TypeAST, 'type'>]: boolean}
 
@@ -47,6 +48,7 @@ const generateFlowTypeDeclaration = (ast: TypeAST): string => {
     ast.type === 'nullable'
       ? nonNullArg(ast.arg)
       : ast
+
   if (
     ast.type === 'string' ||
     ast.type === 'number' ||
@@ -56,7 +58,7 @@ const generateFlowTypeDeclaration = (ast: TypeAST): string => {
   } else if (
     ast.type === 'array'
   ) {
-    return `Array<${generateFlowTypeDeclaration(ast.arg)}>`
+    return `Array<\n${indent(generateFlowTypeDeclaration(ast.arg))}\n>`
   } else if (
     ast.type === 'nullable'
   ) {
@@ -64,31 +66,31 @@ const generateFlowTypeDeclaration = (ast: TypeAST): string => {
   } else if (
     ast.type === 'dictionary'
   ) {
-    return `{[string]: ${generateFlowTypeDeclaration(ast.arg)}}`
+    return `{\n[string]: ${generateFlowTypeDeclaration(ast.arg)}\n}`
   } else if (
     ast.type === 'tuple'
   ) {
-    return `[${ast.fields.map(generateFlowTypeDeclaration).join(', ')}]`
+    return `[\n${ast.fields.map((fieldAst) => indent(generateFlowTypeDeclaration(fieldAst))).join(',\n')}\n]`
   } else if (
     ast.type === 'record'
   ) {
-    return `{${
+    return `{\n${
       toPairs(ast.fields)
-      .map(([fieldName, fieldAST]) => `${fieldName}: ${generateFlowTypeDeclaration(fieldAST)}`)
-      .join('')
-    }}`
+      .map(([fieldName, fieldAST]) => indent(`${fieldName}: ${generateFlowTypeDeclaration(fieldAST)}`))
+      .join(',\n')
+    }\n}`
   } else if (
     ast.type === 'disjoint'
   ) {
     const disjoint = ast
     return toPairs(disjoint.variants).map(
-      ([tag, fieldDict]) => `{ ${disjoint.tagKey}: "${tag}", ${
-        toPairs(fieldDict)
+      ([tag, fieldDict]) => `| {\n${
+        ([[disjoint.tagKey, {type: 'reference', name: `"${tag}"`}]]).concat(toPairs(fieldDict)) // TODO hack!
         .map(
-          ([fieldName, fieldAST]) => `${fieldName}: ${generateFlowTypeDeclaration(fieldAST)}`
-        ).join(', ')
-      } }`
-    ).join(' | ')
+          ([fieldName, fieldAST]) => indent(`${fieldName}: ${generateFlowTypeDeclaration(fieldAST)}`)
+        ).join(',\n')
+      }\n}`
+    ).join('\n')
   } else if (ast.type === 'reference') {
     return ast.name
   } else if (ast.type === 'enum') {
@@ -100,20 +102,11 @@ const generateFlowTypeDeclaration = (ast: TypeAST): string => {
 console.log(
   generateFlowTypeDeclaration(
     {
-      type: 'array',
-      arg: {
-        type: 'disjoint',
-        tagKey: 'class',
-        variants: {
-          'bourgeois': {
-            'wageIncome': {type: 'number'},
-            'capitalIncome': {type: 'number'},
-            'trend': {type: 'tuple', fields: [{type: 'number'}, {type: 'number'}, {type: 'number'}]}
-          },
-          'proletarian': {
-            'wageIncome': {type: 'number'}
-          }
-        }
+      type: 'record',
+      fields: {
+        'value': { type: 'number' },
+        'left': { type: 'reference', name: 'Tree' },
+        'right': { type: 'reference', name: 'Tree' }
       }
     }
   )

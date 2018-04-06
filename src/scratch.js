@@ -1,7 +1,7 @@
 // @flow
 
 import { Ok, Err, andThen, mapOk, collectResultArrayIndexed, collectResultMap, type Result } from './result'
-
+import { typesEmployed } from './generate'
 // Extraction Error Types
 
 type JSONPath = Array<string | number>
@@ -13,7 +13,7 @@ type ExtractionError = {|
 
 /// TypeAST
 
-type AttributeDict = { [attribute: string]: TypeAST }
+type fieldDict = { [field: string]: TypeAST }
 
 type TypeAST =
 | {| type: 'string' |} // Prim
@@ -24,8 +24,8 @@ type TypeAST =
 | {| type: 'nullable', arg: TypeAST |} // Generic
 | {| type: 'dictionary', arg: TypeAST |} // Ex
 | {| type: 'tuple', fields: Array<TypeAST> |} // Ex
-| {| type: 'record', attributes: AttributeDict |} // Ex
-| {| type: 'union', tag: string, variants: {[tag: string]: AttributeDict } |} // Ex
+| {| type: 'record', fields: fieldDict |} // Ex
+| {| type: 'disjoint', tag: string, variants: {[tag: string]: fieldDict } |} // Ex
 | {| type: 'reference', name: string |}
 
 type NameSpace = {[typeVariableName: string]: TypeAST}
@@ -172,7 +172,7 @@ andThen(
     (a) => andThen(
       extractFromKey(extractExampleEnum, path, 'b', obj),
       (b) => andThen(
-        extractNullable(extractBoolean, [...path, 'c'], obj.c),
+        extractNullable(extractBoolean, [...path, 'c'], obj.c), // WRONG
         (c) => {
           let rec = {a, b, c}
 
@@ -192,6 +192,10 @@ andThen(
             } else {
               return res
             }
+          }
+
+          if (Object.keys(obj).length > Object.keys(obj).length) {
+            return Err({path, message: `Extra keys in object.`})
           }
 
           return Ok(rec)
@@ -262,5 +266,12 @@ const extractCitizen = (
 
 console.log(
   'finalRes',
-  extractArray(extractCitizen, [], JSON.parse(`[{"socialClass": "proletarian", "wageIncome": 300}, {"socialClass": "bourgeois", "wageIncome": 0, "capitalIncome": 2342400}]`))
+  typesEmployed({
+      type: 'record',
+      fields: {
+        'name': {type: 'string'},
+        'gender': {type: 'nullable', arg: {type: 'enum', variants: ['male', 'female']}}
+      }
+    }
+  )
 )
