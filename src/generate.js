@@ -12,6 +12,8 @@ type GenerationFrame = {|
   code: Code
 |}
 
+
+
 const genFlowTypeDec = (ast: TypeAST): string => {
   const nonNullArg = (ast: TypeAST): * =>
     ast.type === 'nullable'
@@ -67,7 +69,7 @@ const genFlowTypeDec = (ast: TypeAST): string => {
   } else if (ast.type === 'enum') {
     return ast.variants.map((stringLiteral) => `"${stringLiteral}"`).join(' | ')
   }
-  return '' // TODO: Why doesn't flow know this is exhaustive?
+  throw Error('Impossible!')
 }
 
 console.log(
