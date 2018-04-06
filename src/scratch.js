@@ -116,6 +116,20 @@ extractArray(
   xs
 )
 
+const extractExampleNestedArray = (
+  path: JSONPath,
+  x: mixed
+): Result<Array<Array<EnumExample>>, ExtractionError> =>
+extractArray(
+  (path, x) => extractArray(
+    extractExampleEnum,
+    path,
+    x
+  ),
+  path,
+  x
+)
+
 const extractExampleDictionary = (
   path: JSONPath,
   xs: mixed
