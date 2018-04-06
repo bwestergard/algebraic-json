@@ -1,7 +1,7 @@
 /* @flow */
 
 import { reduce, toPairs } from './springbok'
-import { type TypeDeclarations, type TypeAST, type TypeTag } from './ast'
+import { type TypeDeclarations, type TypeAST, type TypeTag, type FieldDict } from './ast'
 import { indent } from './stringUtils'
 
 type PrimitiveSet = {[$PropertyType<TypeAST, 'type'>]: boolean}
@@ -49,6 +49,12 @@ const generateFlowTypeDeclaration = (ast: TypeAST): string => {
       ? nonNullArg(ast.arg)
       : ast
 
+  const genDisjoint = (tagKey: string, tag: string, fieldDict: FieldDict): string =>
+  ([[tagKey, {type: 'reference', name: `"${tag}"`}]]).concat(toPairs(fieldDict)) // TODO hack!
+  .map(
+    ([fieldName, fieldAST]) => indent(`${fieldName}: ${generateFlowTypeDeclaration(fieldAST)}`)
+  ).join(',\n')
+
   if (
     ast.type === 'string' ||
     ast.type === 'number' ||
@@ -74,22 +80,16 @@ const generateFlowTypeDeclaration = (ast: TypeAST): string => {
   } else if (
     ast.type === 'record'
   ) {
-    return `{\n${
-      toPairs(ast.fields)
-      .map(([fieldName, fieldAST]) => indent(`${fieldName}: ${generateFlowTypeDeclaration(fieldAST)}`))
-      .join(',\n')
-    }\n}`
+    const recordDecElements: string = toPairs(ast.fields)
+    .map(([fieldName, fieldAST]) => indent(`${fieldName}: ${generateFlowTypeDeclaration(fieldAST)}`))
+    .join(',\n')
+    return `{\n${recordDecElements}\n}`
   } else if (
     ast.type === 'disjoint'
   ) {
     const disjoint = ast
     return toPairs(disjoint.variants).map(
-      ([tag, fieldDict]) => `| {\n${
-        ([[disjoint.tagKey, {type: 'reference', name: `"${tag}"`}]]).concat(toPairs(fieldDict)) // TODO hack!
-        .map(
-          ([fieldName, fieldAST]) => indent(`${fieldName}: ${generateFlowTypeDeclaration(fieldAST)}`)
-        ).join(',\n')
-      }\n}`
+      ([tag, fieldDict]) => `| {\n${genDisjoint(disjoint.tagKey, tag, fieldDict)}\n}`
     ).join('\n')
   } else if (ast.type === 'reference') {
     return ast.name
@@ -102,11 +102,18 @@ const generateFlowTypeDeclaration = (ast: TypeAST): string => {
 console.log(
   generateFlowTypeDeclaration(
     {
-      type: 'record',
-      fields: {
-        'value': { type: 'number' },
-        'left': { type: 'reference', name: 'Tree' },
-        'right': { type: 'reference', name: 'Tree' }
+      type: 'disjoint',
+      tagKey: 'shape',
+      variants: {
+        circle: {
+          position: { type: 'tuple', fields: [ {type: 'number'}, {type: 'number'} ]},
+          radius: { type: 'number' }
+        },
+        square: {
+          position: { type: 'tuple', fields: [ {type: 'number'}, {type: 'number'} ]},
+          orientation: { type: 'number' },
+          sideLength: { type: 'number' }
+        }
       }
     }
   )
