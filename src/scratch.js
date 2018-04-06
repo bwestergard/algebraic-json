@@ -1,7 +1,6 @@
 // @flow
 
 import { Ok, Err, andThen, mapOk, collectResultArrayIndexed, collectResultMap, type Result } from './result'
-import { typesEmployed } from './generate'
 // Extraction Error Types
 
 type JSONPath = Array<string | number>

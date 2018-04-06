@@ -7,12 +7,53 @@ import { basicExtractors, type BasicExtractorIdentifier } from './generation/bas
 
 type Dependencies = {[indentifier: BasicExtractorIdentifier]: boolean}
 type Code = string
-type GenerationFrame = {|
-  dependencies: Dependencies,
+type GenFrame = {|
+  deps: Dependencies,
   code: Code
 |}
 
+const addDeps = (
+  ids: BasicExtractorIdentifier[],
+  deps: Dependencies
+): Dependencies => ids.reduce(
+  (acc, dep) => ({...deps, [dep]: true}),
+  deps
+)
 
+// visit: (TypeAST) => R
+const genExtractor = (
+  visitor: {|
+    string: GenFrame,
+    number: GenFrame,
+    boolean: GenFrame,
+    enum: (variants: string[]) => GenFrame,
+    reference: (identifier: string) => GenFrame,
+    array: (childStatement: Code) => GenFrame,
+    nullable: (childStatement: Code) => GenFrame,
+    dictionary: (childStatement: Code) => GenFrame,
+    tuple: <T>(reduceChildren: (acc: T, child: ) => T) => GenFrame,
+    record: () => GenFrame,
+    disjoint: () => GenFrame,
+  |},
+  ast: TypeAST
+): null | GenFrame => null
+
+const genTupleOfStatement = (): GenFrame => {
+
+}
+
+const genArrayOfStatement = (childStatement: Code): GenFrame => {
+  return {
+    deps: addDeps(['extractArrayOf'], {}),
+    code: `
+    extractArray(
+      ${childStatement},
+      path,
+      x
+    )
+    `
+  }
+}
 
 const genFlowTypeDec = (ast: TypeAST): string => {
   const nonNullArg = (ast: TypeAST): * =>
@@ -75,19 +116,8 @@ const genFlowTypeDec = (ast: TypeAST): string => {
 console.log(
   genFlowTypeDec(
     {
-      type: 'disjoint',
-      tagKey: 'shape',
-      variants: {
-        circle: {
-          position: { type: 'tuple', fields: [ {type: 'number'}, {type: 'number'} ]},
-          radius: { type: 'number' }
-        },
-        square: {
-          position: { type: 'tuple', fields: [ {type: 'number'}, {type: 'number'} ]},
-          orientation: { type: 'number' },
-          sideLength: { type: 'number' }
-        }
-      }
+      type: 'array',
+      arg: { type: 'array', arg: { type: 'number' } }
     }
   )
 )
