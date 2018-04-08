@@ -57,7 +57,7 @@ andThen(
   )
 )
 
-export const extractNullable = <T>(
+export const extractNullableOf = <T>(
   extractor: (path: JSONPath, x: mixed) => Result<T,ExtractionError>,
   path: JSONPath,
   x: mixed

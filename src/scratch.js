@@ -1,7 +1,6 @@
 // @flow
 
 import { Ok, Err, andThen, mapOk, collectResultArrayIndexed, collectResultMap, type Result } from './result'
-import { typesEmployed } from './generate'
 // Extraction Error Types
 
 type JSONPath = Array<string | number>
@@ -57,7 +56,7 @@ x !== null && typeof x === 'object'
     : Err({path, message: `Expected an object, got an array.`})
   : Err({path, message: `Expected an object to represent a dictionary, got a ${typeof x}.`})
 
-const extractArray = <T>(
+const extractArrayOf = <T>(
   extractor: (path: JSONPath, x: mixed) => Result<T,ExtractionError>,
   path: JSONPath,
   x: mixed
@@ -83,7 +82,7 @@ andThen(
   )
 )
 
-const extractNullable = <T>(
+const extractNullableOf = <T>(
   extractor: (path: JSONPath, x: mixed) => Result<T,ExtractionError>,
   path: JSONPath,
   x: mixed
@@ -98,19 +97,14 @@ type EnumExample = 'foo' | 'bar' | 'baz'
 const extractExampleEnum = (path: JSONPath, x: mixed): Result<EnumExample,ExtractionError> =>
 andThen(
   extractString(path, x),
-  (s) => {
-    if (s === 'foo' || s === 'bar' || s === 'baz') {
-      return Ok(s)
-    }
-    return Err({path, message: `String value "${s}" is not "foo", "bar", or "baz".`})
-  }
+  (s) => (s === 'foo' || s === 'bar' || s === 'baz') ? Ok(s) : Err({path, message: `String value "${s}" is not "foo", "bar", or "baz".`})
 )
 
 const extractExampleArray = (
   path: JSONPath,
   xs: mixed
 ): Result<EnumExample[], ExtractionError> =>
-extractArray(
+extractArrayOf(
   extractExampleEnum,
   path,
   xs
@@ -120,8 +114,8 @@ const extractExampleNestedArray = (
   path: JSONPath,
   x: mixed
 ): Result<Array<Array<EnumExample>>, ExtractionError> =>
-extractArray(
-  (path, x) => extractArray(
+extractArrayOf(
+  (path, x) => extractArrayOf(
     extractExampleEnum,
     path,
     x
@@ -143,7 +137,8 @@ extractDictionary(
 const extractExampleTuple = (
   path: JSONPath,
   x: mixed
-): Result<[EnumExample, number, string], ExtractionError> => {
+): Result<[EnumExample, number, string], ExtractionError> =>
+((path, x) => {
   if (Array.isArray(x)) {
     if (x.length !== 3) {
       return Err({path, message: `Expected 3 elements, received ${x.length}.`})
@@ -163,7 +158,7 @@ const extractExampleTuple = (
     )
   }
   return Err({path, message: `Expected an array, got a ${typeof x}.`})
-}
+})(path, x)
 
 const extractFromKey = <T>(
   extractor: (path: JSONPath, x: mixed) => Result<T,ExtractionError>,
@@ -186,7 +181,7 @@ andThen(
     (a) => andThen(
       extractFromKey(extractExampleEnum, path, 'b', obj),
       (b) => andThen(
-        extractNullable(extractBoolean, [...path, 'c'], obj.c), // WRONG
+        extractNullableOf(extractBoolean, [...path, 'c'], obj.c), // WRONG
         (c) => {
           let rec = {a, b, c}
 
@@ -278,14 +273,25 @@ const extractCitizen = (
   )
 }
 
-console.log(
-  'finalRes',
-  typesEmployed({
-      type: 'record',
-      fields: {
-        'name': {type: 'string'},
-        'gender': {type: 'nullable', arg: {type: 'enum', variants: ['male', 'female']}}
+const foo =
+(path: JSONPath, x: mixed): Result<[string, number], ExtractionError> =>
+  ((path, x) => {
+    if (Array.isArray(x)) {
+      if (x.length !== 2) {
+        return Err({path, message: `Expected 2 elements, received ${x.length}.`})
       }
+      const res0 = extractString(path, x)
+      const res1 = extractNumber(path, x)
+
+      return andThen(
+        res1,
+        (el1) =>
+          andThen(
+            res0,
+            (el0) =>
+              Ok([el0, el1])))
     }
-  )
-)
+    return Err({path, message: `Expected an array, got a ${typeof x}.`
+    }
+    )
+  })(path, x)

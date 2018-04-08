@@ -34,8 +34,8 @@ export const basicExtractors = {
         : Err({path, message: \`Expected an object, got an array.\`})
       : Err({path, message: \`Expected an object to represent a dictionary, got a \${typeof x}.\`})
     `,
-    'extractNullable': `
-    const extractNullable = <T>(
+    'extractNullableOf': `
+    const extractNullableOf = <T>(
       extractor: (path: JSONPath, x: mixed) => Result<T,ExtractionError>,
       path: JSONPath,
       x: mixed
