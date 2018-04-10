@@ -137,8 +137,7 @@ extractDictionary(
 const extractExampleTuple = (
   path: JSONPath,
   x: mixed
-): Result<[EnumExample, number, string], ExtractionError> =>
-((path, x) => {
+): Result<[EnumExample, number, string], ExtractionError> => {
   if (Array.isArray(x)) {
     if (x.length !== 3) {
       return Err({path, message: `Expected 3 elements, received ${x.length}.`})
@@ -158,7 +157,7 @@ const extractExampleTuple = (
     )
   }
   return Err({path, message: `Expected an array, got a ${typeof x}.`})
-})(path, x)
+}
 
 const extractFromKey = <T>(
   extractor: (path: JSONPath, x: mixed) => Result<T,ExtractionError>,
@@ -274,24 +273,42 @@ const extractCitizen = (
 }
 
 const foo =
-(path: JSONPath, x: mixed): Result<[string, number], ExtractionError> =>
-  ((path, x) => {
-    if (Array.isArray(x)) {
-      if (x.length !== 2) {
-        return Err({path, message: `Expected 2 elements, received ${x.length}.`})
-      }
-      const res0 = extractString(path, x)
-      const res1 = extractNumber(path, x)
-
-      return andThen(
-        res1,
-        (el1) =>
-          andThen(
-            res0,
-            (el0) =>
-              Ok([el0, el1])))
-    }
-    return Err({path, message: `Expected an array, got a ${typeof x}.`
-    }
-    )
-  })(path, x)
+(path: JSONPath, x: mixed): Result<Array<Array<Array<Array<Array<Array<Array<Array<"foo" | "bar" | "baz">>>>>>>>, ExtractionError> =>
+extractArrayOf(
+  (path: JSONPath, x: mixed) => extractArrayOf(
+    (path: JSONPath, x: mixed) => extractArrayOf(
+      (path: JSONPath, x: mixed) => extractArrayOf(
+        (path: JSONPath, x: mixed) => extractArrayOf(
+          (path: JSONPath, x: mixed) => extractArrayOf(
+            (path: JSONPath, x: mixed) => extractArrayOf(
+              (path: JSONPath, x: mixed) => extractArrayOf(
+                (path, x) => andThen(
+                  extractString(path, x),
+                  (s) => (s === 'foo' || s === 'bar' || s === 'baz')
+                    ? Ok(s)
+                    : Err({path, message: `String value "${s}" is not one of: "foo", "bar", "baz".`})
+                ),
+                path,
+                x
+              ),
+              path,
+              x
+            ),
+            path,
+            x
+          ),
+          path,
+          x
+        ),
+        path,
+        x
+      ),
+      path,
+      x
+    ),
+    path,
+    x
+  ),
+  path,
+  x
+)

@@ -20,49 +20,96 @@ const addDeps = (
   deps
 )
 
-const genExtractorApplication = (
+type ExtractorParam =
+| {| kind: 'abstraction' |}
+| {| kind: 'application', pathStmt: Code, xStmt: Code |}
+
+const ab: ExtractorParam = { kind: 'abstraction' }
+const ap = (pathStmt: Code, xStmt: Code): ExtractorParam => ({ kind: 'application', pathStmt, xStmt})
+
+const exParamFork = (
+  abStmt: Code,
+  apFn: (pathStmt: Code, xStmt: Code) => Code,
+  exParam: ExtractorParam
+): Code =>
+exParam.kind === 'abstraction'
+  ? abStmt
+  : apFn(exParam.pathStmt, exParam.xStmt)
+
+const genExtractor = (
+  exParam: ExtractorParam,
   ast: TypeAST
 ): GenFrame => {
   if (
     ast.type === 'string'
   ) {
+    const exId = 'extractString'
     return {
-      deps: addDeps({}, ['extractString']),
-      code: `extractString(path, x)`
+      deps: addDeps({}, [exId]),
+      code: exParamFork(
+        exId,
+        (pathStmt, xStmt) => `${exId}(${pathStmt}, ${xStmt})`,
+        exParam
+      )
     }
   } else if (ast.type === 'number') {
+    const exId = 'extractNumber'
     return {
-      deps: addDeps({}, ['extractNumber']),
-      code: `extractNumber(path, x)`
+      deps: addDeps({}, [exId]),
+      code: exParamFork(
+        exId,
+        (pathStmt, xStmt) => `${exId}(${pathStmt}, ${xStmt})`,
+        exParam
+      )
     }
   } else if (ast.type === 'boolean') {
+    const exId = 'extractBoolean'
     return {
-      deps: addDeps({}, ['extractBoolean']),
-      code: `extractBoolean(path, x)`
+      deps: addDeps({}, [exId]),
+      code: exParamFork(
+        exId,
+        (pathStmt, xStmt) => `${exId}(${pathStmt}, ${xStmt})`,
+        exParam
+      )
     }
   } else if (
     ast.type === 'array'
   ) {
-    const { deps, code } = genExtractor('abstraction', ast.arg)
+    const exId = 'extractArrayOf'
+    const { deps, code } = genExtractor(ab, ast.arg)
     return {
-      deps: addDeps(deps, ['extractMixedArray', 'extractArrayOf']),
-      code: `extractArrayOf(\n${indent(code)},\n  path,\n  x\n)`
+      deps: addDeps(deps, [exId, 'extractMixedArray']),
+      code: exParamFork(
+        `(path: JSONPath, x: mixed) => ${exId}(\n${indent(code)},\n  path,\n  x\n)`,
+        (pathStmt, xStmt) => `${exId}(\n${indent(code)},\n  ${pathStmt},\n  ${xStmt}\n)`,
+        exParam
+      )
     }
   } else if (
     ast.type === 'nullable'
   ) {
-    const { deps, code } = genExtractor('abstraction', ast.arg)
+    const exId = 'extractNullableOf'
+    const { deps, code } = genExtractor(ab, ast.arg)
     return {
-      deps: addDeps(deps, ['extractNullableOf']),
-      code: `extractNullableOf(\n${indent(code)},\n  path,\n  x\n)`
+      deps: addDeps(deps, [exId]),
+      code: exParamFork(
+        `(path: JSONPath, x: mixed) => ${exId}(\n${indent(code)},\n  path,\n  x\n)`,
+        (pathStmt, xStmt) => `${exId}(\n${indent(code)},\n  ${pathStmt},\n  ${xStmt}\n)`,
+        exParam
+      )
     }
   } else if (
     ast.type === 'dictionary'
   ) {
-    const { deps, code } = genExtractor('abstraction', ast.arg)
+    const exId = 'extractDictionaryOf'
+    const { deps, code } = genExtractor(ab, ast.arg)
     return {
-      deps: addDeps(deps, ['extractDictionaryOf']),
-      code: `extractDictionaryOf(\n${indent(code)},\npath,\nx\n)`
+      deps: addDeps(deps, [exId]),
+      code: exParamFork(
+        exId,
+        (pathStmt, xStmt) => `${exId}(\n${indent(code)},\n  ${pathStmt},\n  ${xStmt}\n)`,
+        exParam
+      )
     }
   } else if (
     ast.type === 'tuple'
@@ -79,7 +126,10 @@ const genExtractorApplication = (
     const resStatements: GenFrame = fields
       .reduce(
         (acc: GenFrame, field: TypeAST, i: number) => {
-          const {code, deps} = genExtractor('application', field)
+          const {code, deps} = genExtractor(
+            ap(`[...path, ${i}]`, `x[${i}]`),
+            field
+          )
           return {
             code: acc.code + `const res${i} = ${code}\n`,
             deps: {...acc.deps, ...deps}
@@ -89,9 +139,14 @@ const genExtractorApplication = (
       )
     const lengthCheck: Code = `if (x.length !== ${fields.length}) {\n  return Err({path, message: \`Expected ${fields.length} elements, received \${x.length}.\`})\n}`
     const buildTuple: Code = `${lengthCheck}\n${resStatements.code}\nreturn ${returnStatement}`
-    const mainBlockStatements: Code = `if (Array.isArray(x)) {\n${indent(buildTuple)}\n}\nreturn Err({path, message: \`Expected an array, got a \${typeof x}.\`\n}\n)`
+    const mainBlockStatements: Code = `if (Array.isArray(x)) {\n${indent(buildTuple)}\n}\nreturn Err({path, message: \`Expected an array, got a \${typeof x}.\`})`
+    const abStmt = `(path: JSONPath, x: mixed) => {\n${indent(mainBlockStatements)}\n}`
     return {
-      code: `((path, x) => {\n${indent(mainBlockStatements)}\n})(path, x)`,
+      code: exParamFork(
+        abStmt,
+        (pathStmt, xStmt) => `(${abStmt})(${pathStmt}, ${xStmt})`,
+        exParam
+      ),
       deps: resStatements.deps
     }
   } else if (
@@ -116,25 +171,17 @@ const genExtractorApplication = (
   } else if (ast.type === 'enum') {
     const checks: Code = ast.variants.map((literal) => `s === '${literal}'`).join(' || ')
     const list: Code = ast.variants.map((literal) => `"${literal}"`).join(', ')
+    const abStmt = `(path: JSONPath, x: mixed) => andThen(\n  extractString(path, x),\n  (s) => (${checks})\n    ? Ok(s)\n    : Err({path, message: \`String value "\${s}" is not one of: ${list}.\`})\n)`
     return {
       deps: addDeps({}, ['extractString']),
-      code: `andThen(\n  extractString(path, x),\n  (s) => (${checks})\n    ? Ok(s)\n    : Err({path, message: \`String value "\${s}" is not one of: ${list}.\`})\n)`
+      code: exParamFork(
+        abStmt,
+        (pathStmt, xStmt) => `(${abStmt})(${pathStmt}, ${xStmt})`,
+        exParam
+      )
     }
   }
   throw Error('Impossible!')
-}
-
-const genExtractor = (
-  variety: 'abstraction' | 'application',
-  ast: TypeAST
-): GenFrame => {
-  const { deps, code } = genExtractorApplication(ast)
-  return {
-    deps,
-    code: variety === 'abstraction'
-      ? `(path: JSONPath, x: mixed) =>\n${indent(code)}`
-      : code
-  }
 }
 
 const genFlowTypeDec = (ast: TypeAST): string => {
@@ -196,11 +243,29 @@ const genFlowTypeDec = (ast: TypeAST): string => {
 }
 
 console.log(
-  genExtractor('abstraction', {
-    type: 'tuple',
-    fields: [
-      {type: 'string'},
-      {type: 'number'}
-    ]
+  genExtractor(ab, {
+    type: 'array',
+    arg: {
+      type: 'array',
+      arg: {
+        type: 'array',
+        arg: {
+          type: 'array',
+          arg: {
+            type: 'array',
+            arg: {
+              type: 'array',
+              arg: {
+                type: 'array',
+                arg: {
+                  type: 'array',
+                  arg: {type: 'enum', variants: ['foo', 'bar', 'baz']}
+                }
+              }
+            }
+          }
+        }
+      }
+    }
   }).code
 )
