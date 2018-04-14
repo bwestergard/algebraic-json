@@ -180,7 +180,7 @@ andThen(
     (a) => andThen(
       extractFromKey(extractExampleEnum, path, 'b', obj),
       (b) => andThen(
-        extractNullableOf(extractBoolean, [...path, 'c'], obj.c), // WRONG
+        extractFromKey((path, x) => extractNullableOf(extractBoolean, path, x), path, 'c', obj),
         (c) => {
           let rec = {a, b, c}
 
@@ -200,10 +200,6 @@ andThen(
             } else {
               return res
             }
-          }
-
-          if (Object.keys(obj).length > Object.keys(obj).length) {
-            return Err({path, message: `Extra keys in object.`})
           }
 
           return Ok(rec)

@@ -4,6 +4,7 @@ import { reduce, toPairs } from './springbok'
 import { type TypeDeclarations, type TypeAST, type TypeTag, type FieldDict } from './ast'
 import { indent } from './stringUtils'
 import { basicExtractors, type BasicExtractorIdentifier } from './generation/basics'
+import { tupleTemplate, tupleReturnTemplate } from './codeTemplates'
 
 type Dependencies = {[indentifier: BasicExtractorIdentifier]: boolean}
 type Code = string
@@ -117,10 +118,12 @@ const genExtractor = (
     const elementPrefix = 'el'
     const resultPrefix = 'res'
     const fields = ast.fields
-
     const tupleContents: Code = fields.map((field, index) => `${elementPrefix}${index}`).join(', ')
     const returnStatement: Code = fields.reduce(
-      (innerStatement, field, index) => `andThen(\n  ${resultPrefix}${index},\n  (${elementPrefix}${index}) =>\n${indent(indent(innerStatement))})`,
+      (innerStatement, field, index) => tupleReturnTemplate(
+        fields.length - 1 - index,
+        innerStatement
+      ),
       `Ok([${tupleContents}])`
     )
     const resStatements: GenFrame = fields
@@ -137,10 +140,7 @@ const genExtractor = (
         },
         {code: '', deps: {}}
       )
-    const lengthCheck: Code = `if (x.length !== ${fields.length}) {\n  return Err({path, message: \`Expected ${fields.length} elements, received \${x.length}.\`})\n}`
-    const buildTuple: Code = `${lengthCheck}\n${resStatements.code}\nreturn ${returnStatement}`
-    const mainBlockStatements: Code = `if (Array.isArray(x)) {\n${indent(buildTuple)}\n}\nreturn Err({path, message: \`Expected an array, got a \${typeof x}.\`})`
-    const abStmt = `(path: JSONPath, x: mixed) => {\n${indent(mainBlockStatements)}\n}`
+    const abStmt = tupleTemplate(fields.length, resStatements.code, returnStatement)
     return {
       code: exParamFork(
         abStmt,
@@ -244,28 +244,11 @@ const genFlowTypeDec = (ast: TypeAST): string => {
 
 console.log(
   genExtractor(ab, {
-    type: 'array',
-    arg: {
-      type: 'array',
-      arg: {
-        type: 'array',
-        arg: {
-          type: 'array',
-          arg: {
-            type: 'array',
-            arg: {
-              type: 'array',
-              arg: {
-                type: 'array',
-                arg: {
-                  type: 'array',
-                  arg: {type: 'enum', variants: ['foo', 'bar', 'baz']}
-                }
-              }
-            }
-          }
-        }
-      }
-    }
+    type: 'tuple',
+    fields: [
+      { type: 'number' },
+      { type: 'number' },
+      { type: 'number' }
+    ]
   }).code
 )
