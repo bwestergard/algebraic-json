@@ -4,7 +4,7 @@ import { reduce, toPairs } from './springbok'
 import { type TypeDeclarations, type TypeAST, type TypeTag, type FieldDict } from './ast'
 import { indent } from './stringUtils'
 import { basicExtractors, type BasicExtractorIdentifier } from './generation/basics'
-import { tupleTemplate, tupleReturnTemplate } from './codeTemplates'
+import { tupleTemplate, tupleReturnStatementTemplate } from './codeTemplates'
 
 type Dependencies = {[indentifier: BasicExtractorIdentifier]: boolean}
 type Code = string
@@ -115,17 +115,9 @@ const genExtractor = (
   } else if (
     ast.type === 'tuple'
   ) {
-    const elementPrefix = 'el'
-    const resultPrefix = 'res'
+    const elementPrefix = 'el' // TODO
+    const resultPrefix = 'res' // TODO
     const fields = ast.fields
-    const tupleContents: Code = fields.map((field, index) => `${elementPrefix}${index}`).join(', ')
-    const returnStatement: Code = fields.reduce(
-      (innerStatement, field, index) => tupleReturnTemplate(
-        fields.length - 1 - index,
-        innerStatement
-      ),
-      `Ok([${tupleContents}])`
-    )
     const resStatements: GenFrame = fields
       .reduce(
         (acc: GenFrame, field: TypeAST, i: number) => {
@@ -134,13 +126,13 @@ const genExtractor = (
             field
           )
           return {
-            code: acc.code + `const res${i} = ${code}\n`,
+            code: acc.code + `const ${resultPrefix}${i} = ${code}\n`,
             deps: {...acc.deps, ...deps}
           }
         },
         {code: '', deps: {}}
       )
-    const abStmt = tupleTemplate(fields.length, resStatements.code, returnStatement)
+    const abStmt = tupleTemplate(fields.length, resStatements.code)
     return {
       code: exParamFork(
         abStmt,
@@ -247,7 +239,12 @@ console.log(
     type: 'tuple',
     fields: [
       { type: 'number' },
-      { type: 'number' },
+      {
+        type: 'tuple',
+        fields: [
+          { type: 'number' }
+        ]
+      },
       { type: 'number' }
     ]
   }).code

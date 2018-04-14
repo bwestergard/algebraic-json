@@ -5,24 +5,32 @@ import { indentToLevel, indent } from './stringUtils'
 const elementPrefix = 'el'
 const resultPrefix = 'res'
 
+const range = (size: number): number[] => {
+  let out = []
+  for (let i = 0; i < size; i++) {
+    out.push(i)
+  }
+  return out
+}
+
 export const tupleTemplate = (
-  correctLength: number,
-  resStatements: string,
-  returnStatement: string
+  arity: number,
+  resStatements: string
 ): string => `
 (path: JSONPath, x: mixed) => {
   if (Array.isArray(x)) {
-    if (x.length !== ${correctLength}) {
-      return Err({path, message: \`Expected ${correctLength} elements, received \${x.length}.\`})
+    if (x.length !== ${arity}) {
+      return Err({path, message: \`Expected ${arity} elements, received \${x.length}.\`})
     }
+
     ${indentToLevel(2, resStatements)}
-    return ${indentToLevel(2,returnStatement)}
+    return ${indentToLevel(2, tupleReturnStatementTemplate(arity))}
   }
   return Err({path, message: \`Expected an array, got a \${typeof x}.\`})
 }
 `.trim()
 
-export const tupleReturnTemplate = (
+const tupleReturnTemplate = (
   index: number,
   innerStatement: string
 ): string => `
@@ -31,3 +39,28 @@ andThen(
   (${elementPrefix}${index}) =>
   ${indentToLevel(1, indent(innerStatement))})
 `.trim()
+
+export const tupleReturnStatementTemplate = (arity: number): string =>
+range(arity)
+.reduce(
+  (innerStatement, index) => tupleReturnTemplate(
+    arity - 1 - index,
+    innerStatement
+  ),
+  tupleFinalOkTemplate(arity)
+)
+
+export const tupleFinalOkTemplate = (arity: number): string =>
+`Ok([` +
+range(arity)
+.map((i) => `${elementPrefix}${i}`)
+.join(', ')
++ `])`
+
+//   {
+//   let out = ''
+//   for (let i = 0; i < arity; i++) {
+//     out +=
+//   }
+//   return
+// })
