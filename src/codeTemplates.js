@@ -1,6 +1,7 @@
 /* @flow */
 
 import { indentToLevel, indent } from './stringUtils'
+import { toPairs } from './springbok'
 
 const elementPrefix = 'el'
 const resultPrefix = 'res'
@@ -12,6 +13,8 @@ const range = (size: number): number[] => {
   }
   return out
 }
+
+// Tuple
 
 export const tupleTemplate = (
   arity: number,
@@ -57,10 +60,67 @@ range(arity)
 .join(', ')
 + `])`
 
-//   {
-//   let out = ''
-//   for (let i = 0; i < arity; i++) {
-//     out +=
-//   }
-//   return
-// })
+export const tupleResDeclarationTemplate = (i: number, stmt: string): string =>
+`const ${resultPrefix}${i} = ${stmt}`
+
+// Record
+
+const valueResultForKeyPrefix = 'requiredField'
+const mixedObjectId = 'obj'
+
+const requiredRecordFieldStmts = (index, key, exStmt) =>
+`
+const ${valueResultForKeyPrefix}${index} = extractFromKey(${exStmt}, path, '${key}', ${mixedObjectId})
+if (${valueResultForKeyPrefix}${index}.tag === 'Err') return ${valueResultForKeyPrefix}${index}
+`.trim()
+
+const exStmtsJoiner = (
+  templateFn: (number, string, string) => string,
+  exStmts: Array<[string, string]> // key, exStmt
+): string =>
+exStmts
+.map(
+  ([key, exStmt], index) => requiredRecordFieldStmts(index, key, exStmt)
+)
+.join('\n')
+
+const recordRecElementsTemplate = (
+  requiredExtractors: Array<[string, string]>
+): string =>
+requiredExtractors
+.map(
+  ([key], index) => `${key}: ${valueResultForKeyPrefix}${index}.data`
+)
+.join(',\n')
+
+const optionalRecordFieldStmts = (index, key, exStmt) =>
+`
+if (obj.hasOwnProperty('${key}')) {
+  const d = extractFromKey(${exStmt}, path, '${key}', ${mixedObjectId})
+  if (d.tag === 'Ok') {
+    rec = {...rec, ${key}: ${valueResultForKeyPrefix}${index}.data}
+  } else {
+    return ${valueResultForKeyPrefix}${index}
+  }
+}
+`.trim()
+
+export const recordTemplate = (
+  requiredExtractors: Array<[string, string]>,
+  optionalExtractors: Array<[string, string]>
+) => `
+andThen(
+  extractMixedObject(path, x),
+  (obj) => {
+    ${indentToLevel(2, exStmtsJoiner(requiredRecordFieldStmts, requiredExtractors))}
+
+    let rec = {
+      ${indentToLevel(3, recordRecElementsTemplate(requiredExtractors))}
+    }
+
+    ${indentToLevel(2, exStmtsJoiner(optionalRecordFieldStmts, requiredExtractors))}
+
+    return Ok(rec)
+  }
+)
+`.trim()

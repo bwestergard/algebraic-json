@@ -169,6 +169,44 @@ obj.hasOwnProperty(key)
   ? extractor([...path, key], obj[key])
   : Err({path, message: `Expected key "${key}" is not present.`})
 
+const extractAnotherRecord = (
+  path: JSONPath,
+  x: mixed
+): Result<{a: string, b: number, c: boolean, d?: string, e?: number}, ExtractionError> =>
+andThen(
+  extractMixedObject(path, x),
+  (obj) => {
+    const a = extractFromKey(extractString, path, 'a', obj)
+    if (a.tag === 'Err') return a
+    const b = extractFromKey(extractNumber, path, 'b', obj)
+    if (b.tag === 'Err') return b
+    const c = extractFromKey(extractBoolean, path, 'c', obj)
+    if (c.tag === 'Err') return c
+
+    let _rec = {a: a.data, b: b.data, c: c.data}
+
+    if (obj.hasOwnProperty('d')) {
+      const d = extractFromKey(extractString, path, 'd', obj)
+      if (d.tag === 'Ok') {
+        _rec = {..._rec, d: d.data}
+      } else {
+        return d
+      }
+    }
+
+    if (obj.hasOwnProperty('e')) {
+      const e = extractFromKey(extractNumber, path, 'e', obj)
+      if (e.tag === 'Ok') {
+        _rec = {..._rec, e: e.data}
+      } else {
+        return e
+      }
+    }
+
+    return Ok(_rec)
+  }
+)
+
 const extractExampleRecord = (
   path: JSONPath,
   x: mixed

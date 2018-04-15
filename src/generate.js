@@ -4,7 +4,7 @@ import { reduce, toPairs } from './springbok'
 import { type TypeDeclarations, type TypeAST, type TypeTag, type FieldDict } from './ast'
 import { indent } from './stringUtils'
 import { basicExtractors, type BasicExtractorIdentifier } from './generation/basics'
-import { tupleTemplate, tupleReturnStatementTemplate } from './codeTemplates'
+import { tupleTemplate, tupleReturnStatementTemplate, tupleResDeclarationTemplate } from './codeTemplates'
 
 type Dependencies = {[indentifier: BasicExtractorIdentifier]: boolean}
 type Code = string
@@ -40,138 +40,95 @@ exParam.kind === 'abstraction'
 const genExtractor = (
   exParam: ExtractorParam,
   ast: TypeAST
-): GenFrame => {
+): Code => {
   if (
     ast.type === 'string'
   ) {
     const exId = 'extractString'
-    return {
-      deps: addDeps({}, [exId]),
-      code: exParamFork(
-        exId,
-        (pathStmt, xStmt) => `${exId}(${pathStmt}, ${xStmt})`,
-        exParam
-      )
-    }
+    return exParamFork(
+      exId,
+      (pathStmt, xStmt) => `${exId}(${pathStmt}, ${xStmt})`,
+      exParam
+    )
   } else if (ast.type === 'number') {
     const exId = 'extractNumber'
-    return {
-      deps: addDeps({}, [exId]),
-      code: exParamFork(
-        exId,
-        (pathStmt, xStmt) => `${exId}(${pathStmt}, ${xStmt})`,
-        exParam
-      )
-    }
+    return exParamFork(
+      exId,
+      (pathStmt, xStmt) => `${exId}(${pathStmt}, ${xStmt})`,
+      exParam
+    )
   } else if (ast.type === 'boolean') {
     const exId = 'extractBoolean'
-    return {
-      deps: addDeps({}, [exId]),
-      code: exParamFork(
-        exId,
-        (pathStmt, xStmt) => `${exId}(${pathStmt}, ${xStmt})`,
-        exParam
-      )
-    }
+    return exParamFork(
+      exId,
+      (pathStmt, xStmt) => `${exId}(${pathStmt}, ${xStmt})`,
+      exParam
+    )
   } else if (
     ast.type === 'array'
   ) {
     const exId = 'extractArrayOf'
-    const { deps, code } = genExtractor(ab, ast.arg)
-    return {
-      deps: addDeps(deps, [exId, 'extractMixedArray']),
-      code: exParamFork(
-        `(path: JSONPath, x: mixed) => ${exId}(\n${indent(code)},\n  path,\n  x\n)`,
-        (pathStmt, xStmt) => `${exId}(\n${indent(code)},\n  ${pathStmt},\n  ${xStmt}\n)`,
-        exParam
-      )
-    }
+    const code = genExtractor(ab, ast.arg)
+    return exParamFork(
+      `(path: JSONPath, x: mixed) => ${exId}(\n${indent(code)},\n  path,\n  x\n)`,
+      (pathStmt, xStmt) => `${exId}(\n${indent(code)},\n  ${pathStmt},\n  ${xStmt}\n)`,
+      exParam
+    )
   } else if (
     ast.type === 'nullable'
   ) {
     const exId = 'extractNullableOf'
-    const { deps, code } = genExtractor(ab, ast.arg)
-    return {
-      deps: addDeps(deps, [exId]),
-      code: exParamFork(
-        `(path: JSONPath, x: mixed) => ${exId}(\n${indent(code)},\n  path,\n  x\n)`,
-        (pathStmt, xStmt) => `${exId}(\n${indent(code)},\n  ${pathStmt},\n  ${xStmt}\n)`,
-        exParam
-      )
-    }
+    const code = genExtractor(ab, ast.arg)
+    return exParamFork(
+      `(path: JSONPath, x: mixed) => ${exId}(\n${indent(code)},\n  path,\n  x\n)`,
+      (pathStmt, xStmt) => `${exId}(\n${indent(code)},\n  ${pathStmt},\n  ${xStmt}\n)`,
+      exParam
+    )
   } else if (
     ast.type === 'dictionary'
   ) {
     const exId = 'extractDictionaryOf'
-    const { deps, code } = genExtractor(ab, ast.arg)
-    return {
-      deps: addDeps(deps, [exId]),
-      code: exParamFork(
-        exId,
-        (pathStmt, xStmt) => `${exId}(\n${indent(code)},\n  ${pathStmt},\n  ${xStmt}\n)`,
-        exParam
-      )
-    }
+    const code = genExtractor(ab, ast.arg)
+    return exParamFork(
+      exId,
+      (pathStmt, xStmt) => `${exId}(\n${indent(code)},\n  ${pathStmt},\n  ${xStmt}\n)`,
+      exParam
+    )
   } else if (
     ast.type === 'tuple'
   ) {
-    const elementPrefix = 'el' // TODO
-    const resultPrefix = 'res' // TODO
-    const fields = ast.fields
-    const resStatements: GenFrame = fields
-      .reduce(
-        (acc: GenFrame, field: TypeAST, i: number) => {
-          const {code, deps} = genExtractor(
-            ap(`[...path, ${i}]`, `x[${i}]`),
-            field
-          )
-          return {
-            code: acc.code + `const ${resultPrefix}${i} = ${code}\n`,
-            deps: {...acc.deps, ...deps}
-          }
-        },
-        {code: '', deps: {}}
-      )
-    const abStmt = tupleTemplate(fields.length, resStatements.code)
-    return {
-      code: exParamFork(
-        abStmt,
-        (pathStmt, xStmt) => `(${abStmt})(${pathStmt}, ${xStmt})`,
-        exParam
-      ),
-      deps: resStatements.deps
-    }
+    const resStatements: Code =
+    ast.fields
+    .map(
+      (field: TypeAST, i: number) =>
+        tupleResDeclarationTemplate(i, genExtractor(ap(`[...path, ${i}]`, `x[${i}]`), field))
+    )
+    .join('\n')
+    const abStmt = tupleTemplate(ast.fields.length, resStatements)
+    return exParamFork(
+      abStmt,
+      (pathStmt, xStmt) => `(${abStmt})(${pathStmt}, ${xStmt})`,
+      exParam
+    )
   } else if (
     ast.type === 'record'
   ) {
-    return {
-      code: ``,
-      deps: {}
-    }
+    return `extract000`
   } else if (
     ast.type === 'disjoint'
   ) {
-    return {
-      code: ``,
-      deps: {}
-    }
+    return `extract000`
   } else if (ast.type === 'reference') {
-    return {
-      deps: {},
-      code: ast.name
-    }
+    return ast.name
   } else if (ast.type === 'enum') {
     const checks: Code = ast.variants.map((literal) => `s === '${literal}'`).join(' || ')
     const list: Code = ast.variants.map((literal) => `"${literal}"`).join(', ')
     const abStmt = `(path: JSONPath, x: mixed) => andThen(\n  extractString(path, x),\n  (s) => (${checks})\n    ? Ok(s)\n    : Err({path, message: \`String value "\${s}" is not one of: ${list}.\`})\n)`
-    return {
-      deps: addDeps({}, ['extractString']),
-      code: exParamFork(
-        abStmt,
-        (pathStmt, xStmt) => `(${abStmt})(${pathStmt}, ${xStmt})`,
-        exParam
-      )
-    }
+    return exParamFork(
+      abStmt,
+      (pathStmt, xStmt) => `(${abStmt})(${pathStmt}, ${xStmt})`,
+      exParam
+    )
   }
   throw Error('Impossible!')
 }
@@ -247,5 +204,5 @@ console.log(
       },
       { type: 'number' }
     ]
-  }).code
+  })
 )
