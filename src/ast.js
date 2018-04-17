@@ -1,6 +1,14 @@
 /* @flow */
 
-export type FieldDict = { [fieldName: string]: TypeAST }
+import { Ok, Err, andThen, mapOk, type Result, collectResultArray } from './result'
+import { toPairs } from './springbok'
+
+type FieldDict = { [fieldName: string]: TypeAST }
+
+type AssocList<T> = Array<[string, T]>
+type OptField = { required: boolean, type: ParsedTypeAST }
+type FieldAssocList = AssocList<OptField>
+type NamedVariants = AssocList<FieldAssocList>
 
 export type TypeAST =
 | {| type: 'string' |} // Prim
@@ -10,11 +18,133 @@ export type TypeAST =
 | {| type: 'reference', name: string |}
 | {| type: 'array', arg: TypeAST |} // Ex
 | {| type: 'nullable', arg: TypeAST |} // Generic
-| {| type: 'dictionary', arg: TypeAST |} // Ex
+| {| type: 'dictionary', arg: TypeAST|} // Ex
 | {| type: 'tuple', fields: Array<TypeAST> |} // Ex
 | {| type: 'record', fields: FieldDict |} // Ex
 | {| type: 'disjoint', tagKey: string, variants: {[tag: string]: FieldDict } |} // Ex
 
-export type TypeTag = $PropertyType<TypeAST, 'type'>
+export type ParsedTypeAST =
+| {| type: 'string' |} // Prim
+| {| type: 'number' |} // Prim
+| {| type: 'boolean' |} // Prim
+| {| type: 'enum', variants: string[] |} // Ex
+| {| type: 'reference', name: string |}
+| {| type: 'array', arg: ParsedTypeAST |} // Ex
+| {| type: 'nullable', arg: ParsedTypeAST |} // Generic
+| {| type: 'dictionary', arg: ParsedTypeAST |} // Ex
+| {| type: 'tuple', fields: Array<ParsedTypeAST> |} // Ex
+| {| type: 'record', fields: FieldAssocList |} // Ex
+| {| type: 'disjoint', tagKey: string, variants: NamedVariants |} // Ex
 
+export type TypeTag = $PropertyType<TypeAST, 'type'>
 export type TypeDeclarations = {[identifier: string]: TypeAST}
+
+// PARSING
+
+// Sort because iteration order of JSON objects is not guaranteed, and we want stable code output.
+const toAssocList = <T>(
+  obj: {[key: string]: T}
+): AssocList<T> =>
+toPairs(obj)
+.sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
+
+
+const parse = (
+  ast: TypeAST
+): Result<ParsedTypeAST, string> => {
+
+  const parseFields = (
+    pairs: Array<[string, TypeAST]>
+  ) => collectResultArray(
+    pairs,
+    ([key, field]): Result<[string, OptField], string> => {
+      if (key === '') return Err('Field name cannot be empty.')
+
+      const lastChar = key.slice(-1)
+      if (lastChar === '?') {
+        return mapOk(
+          parse(field),
+          (parsed) => [ key.slice(0, -1), { required: false, type: parsed } ]
+        )
+      } else {
+        return mapOk(
+          parse(field),
+          (parsed) => [ key, { required: true, type: parsed } ]
+        )
+      }
+    }
+  )
+
+  if (ast.type === 'array') {
+    return mapOk(
+      parse(ast.arg),
+      (arg) => ({
+        type: 'array',
+        arg: arg
+      })
+    )
+  }
+  if (ast.type === 'dictionary') {
+    return mapOk(
+      parse(ast.arg),
+      (arg) => ({
+        type: 'dictionary',
+        arg: arg
+      })
+    )
+  }
+  if (ast.type === 'nullable') {
+    return andThen(
+      parse(ast.arg),
+      (arg) => arg.type !== 'nullable'
+        ? Ok({
+          type: 'nullable',
+          arg: arg
+        })
+        : Err('The argument to nullable cannot be nullable, as this is redundant.')
+    )
+  }
+  if (ast.type === 'tuple') {
+    return andThen(
+      collectResultArray(
+        ast.fields,
+        parse
+      ),
+      (fields) => fields.length > 0
+        ? Ok({
+          type: 'tuple',
+          fields
+        })
+        : Err('Tuples must have at least one field.')
+    )
+  }
+  if (ast.type === 'record') {
+    return mapOk(
+     parseFields(toAssocList(ast.fields)),
+     (fields) => ({
+       type: 'record',
+       fields: fields
+     })
+    )
+  }
+  if (ast.type === 'disjoint') {
+    const tagKey = ast.tagKey
+    if (tagKey === '') return Err('Tag key cannot be empty string.')
+
+    return mapOk(
+      collectResultArray(
+        toAssocList(ast.variants),
+        ([variantName, fields]) => mapOk(
+          parseFields(toAssocList(fields)),
+          (variantAssocList) => [variantName, variantAssocList]
+        )
+      ),
+      (variants) => ({
+        type: 'disjoint',
+        tagKey,
+        variants
+      })
+    )
+  }
+  return Ok(ast)
+}
