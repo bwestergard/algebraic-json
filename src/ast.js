@@ -6,9 +6,9 @@ import { toPairs } from './springbok'
 type FieldDict = { [fieldName: string]: TypeAST }
 
 type AssocList<T> = Array<[string, T]>
+type FieldAssocLists = { required: AssocList<ParsedTypeAST>, optional: AssocList<ParsedTypeAST> }
+type NamedVariants = AssocList<FieldAssocLists>
 type OptField = { required: boolean, type: ParsedTypeAST }
-type FieldAssocList = AssocList<OptField>
-type NamedVariants = AssocList<FieldAssocList>
 
 export type TypeAST =
 | {| type: 'string' |} // Prim
@@ -33,7 +33,7 @@ export type ParsedTypeAST =
 | {| type: 'nullable', arg: ParsedTypeAST |} // Generic
 | {| type: 'dictionary', arg: ParsedTypeAST |} // Ex
 | {| type: 'tuple', fields: Array<ParsedTypeAST> |} // Ex
-| {| type: 'record', fields: FieldAssocList |} // Ex
+| {| type: 'record', fields: FieldAssocLists |} // Ex
 | {| type: 'disjoint', tagKey: string, variants: NamedVariants |} // Ex
 
 export type TypeTag = $PropertyType<TypeAST, 'type'>
@@ -55,24 +55,32 @@ const parse = (
 
   const parseFields = (
     pairs: Array<[string, TypeAST]>
-  ) => collectResultArray(
-    pairs,
-    ([key, field]): Result<[string, OptField], string> => {
-      if (key === '') return Err('Field name cannot be empty.')
+  ): Result<FieldAssocLists, string> => mapOk(
+    collectResultArray(
+      pairs,
+      ([key, field]): Result<[string, OptField], string> => {
+        if (key === '') return Err('Field name cannot be empty.')
 
-      const lastChar = key.slice(-1)
-      if (lastChar === '?') {
-        return mapOk(
-          parse(field),
-          (parsed) => [ key.slice(0, -1), { required: false, type: parsed } ]
-        )
-      } else {
-        return mapOk(
-          parse(field),
-          (parsed) => [ key, { required: true, type: parsed } ]
-        )
+        const lastChar = key.slice(-1)
+        if (lastChar === '?') {
+          return mapOk(
+            parse(field),
+            (parsed) => [ key.slice(0, -1), { required: false, type: parsed } ]
+          )
+        } else {
+          return mapOk(
+            parse(field),
+            (parsed) => [ key, { required: true, type: parsed } ]
+          )
+        }
       }
-    }
+    ),
+    (optFieldAssocList) => optFieldAssocList.reduce(
+      (acc, [fieldName, optField]) => optField.required
+        ? { optional: acc.optional, required: acc.required.concat([[fieldName, optField.type]]) }
+        : { required: acc.required, optional: acc.optional.concat([[fieldName, optField.type]]) },
+      { required: [], optional: [] }
+    )
   )
 
   if (ast.type === 'array') {
@@ -148,3 +156,38 @@ const parse = (
   }
   return Ok(ast)
 }
+
+console.log(
+  JSON.stringify(
+    parse({
+      type: 'disjoint',
+      tagKey: 'class',
+      variants: {
+        proletarian: {
+          'child?': {
+            type: 'disjoint',
+            tagKey: 'class',
+            variants: {
+              proletarian: {
+                'franchise': { type: 'boolean' },
+                'wageIncome?': { type: 'number' }
+              },
+              bourgeois: {
+                'franchise': { type: 'boolean' },
+                'wageIncome?': { type: 'number' },
+                'capitalIncome': { type: 'number' }
+              }
+            }
+          },
+          'franchise': { type: 'boolean' },
+          'wageIncome?': { type: 'number' }
+        },
+        bourgeois: {
+          'franchise': { type: 'boolean' },
+          'wageIncome?': { type: 'number' },
+          'capitalIncome': { type: 'number' }
+        }
+      }
+    })
+  )
+)
