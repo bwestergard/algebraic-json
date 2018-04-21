@@ -1,6 +1,17 @@
 // @flow
 
 import { Ok, Err, andThen, mapOk, collectResultArrayIndexed, collectResultMap, type Result } from './result'
+import {
+  extractString,
+  extractNumber,
+  extractBoolean,
+  extractMixedArray,
+  extractMixedObject,
+  extractArrayOf,
+  extractDictionary,
+  extractNullableOf,
+  extractFromKey
+ } from './extractors'
 // Extraction Error Types
 
 type JSONPath = Array<string | number>
@@ -30,66 +41,6 @@ type TypeAST =
 type NameSpace = {[typeVariableName: string]: TypeAST}
 
 // Generic
-
-const extractString = (path: JSONPath, x: mixed): Result<string,ExtractionError> =>
-typeof x === 'string'
-  ? Ok(x)
-  : Err({path, message: `Value is of type ${typeof x}, not string.`})
-
-const extractNumber = (path: JSONPath, x: mixed): Result<number,ExtractionError> =>
-typeof x === 'number'
-  ? Ok(x)
-  : Err({path, message: `Value is of type ${typeof x}, not number.`})
-
-const extractBoolean = (path: JSONPath, x: mixed): Result<boolean,ExtractionError> =>
-x === true || x === false
-  ? Ok(x)
-  : Err({path, message: `Value is of type ${typeof x}, not boolean.`})
-
-const extractMixedArray = (path: JSONPath, x: mixed): Result<Array<mixed>,ExtractionError> =>
-Array.isArray(x) && x !== null ? Ok(x) : Err({path, message: "Value is not an array."})
-
-const extractMixedObject = (path: JSONPath, x: mixed): Result<{[key: string]: mixed}, ExtractionError> =>
-x !== null && typeof x === 'object'
-  ? !Array.isArray(x)
-    ? Ok(x)
-    : Err({path, message: `Expected an object, got an array.`})
-  : Err({path, message: `Expected an object to represent a dictionary, got a ${typeof x}.`})
-
-const extractArrayOf = <T>(
-  extractor: (path: JSONPath, x: mixed) => Result<T,ExtractionError>,
-  path: JSONPath,
-  x: mixed
-): Result<Array<T>, ExtractionError> =>
-andThen(
-  extractMixedArray(path, x),
-  (arr) => collectResultArrayIndexed(
-    arr,
-    (index, val) => extractor([...path, index], val)
-  )
-)
-
-const extractDictionary = <T>(
-  extractor: (path: JSONPath, x: mixed) => Result<T,ExtractionError>,
-  path: JSONPath,
-  x: mixed
-): Result<{[string]: T}, ExtractionError> =>
-andThen(
-  extractMixedObject(path, x),
-  (obj) => collectResultMap(
-    obj,
-    (key, val) => extractor([...path, key], val)
-  )
-)
-
-const extractNullableOf = <T>(
-  extractor: (path: JSONPath, x: mixed) => Result<T,ExtractionError>,
-  path: JSONPath,
-  x: mixed
-): Result<T | null, ExtractionError> =>
-x === null
-  ? Ok(null)
-  : extractor(path, x)
 
 // Examples
 
@@ -158,16 +109,6 @@ const extractExampleTuple = (
   }
   return Err({path, message: `Expected an array, got a ${typeof x}.`})
 }
-
-const extractFromKey = <T>(
-  extractor: (path: JSONPath, x: mixed) => Result<T,ExtractionError>,
-  path: JSONPath,
-  key: string,
-  obj: {[string]: mixed}
-): Result<T,ExtractionError> =>
-obj.hasOwnProperty(key)
-  ? extractor([...path, key], obj[key])
-  : Err({path, message: `Expected key "${key}" is not present.`})
 
 const extractAnotherRecord = (
   path: JSONPath,
@@ -366,7 +307,8 @@ const extractCitizen = (
   )
 }
 
-const extractDisjointEx = (path: JSONPath, x: mixed) => {
+const extractDisjointEx =
+(path: JSONPath, x: mixed) => {
   const variant0 =
   (path, x) => andThen(
     extractMixedObject(path, x),
@@ -394,7 +336,9 @@ const extractDisjointEx = (path: JSONPath, x: mixed) => {
       if (reqField2.tag === 'Err') return reqField2
       let rec = {
         number: 'one',
-        d: reqField0.data
+        a: reqField2.data,
+        b: reqField1.data,
+        c: reqField0.data
       }
       if (obj.hasOwnProperty('d')) {
         const optField0 = extractFromKey(
@@ -419,26 +363,29 @@ const extractDisjointEx = (path: JSONPath, x: mixed) => {
       const reqField0 = extractFromKey(
         extractNumber,
         path,
-        'a',
+        'bar',
         obj
       )
       if (reqField0.tag === 'Err') return reqField0
       const reqField1 = extractFromKey(
         extractNumber,
         path,
-        'b',
+        'baz',
         obj
       )
       if (reqField1.tag === 'Err') return reqField1
       const reqField2 = extractFromKey(
         extractNumber,
         path,
-        'c',
+        'foo',
         obj
       )
       if (reqField2.tag === 'Err') return reqField2
       let rec = {
-        number: 'two'
+        number: 'two',
+        bar: reqField2.data,
+        baz: reqField1.data,
+        foo: reqField0.data
       }
 
       return Ok(rec)
@@ -460,3 +407,9 @@ const extractDisjointEx = (path: JSONPath, x: mixed) => {
     )
   )
 }
+
+console.log(JSON.stringify(extractDisjointEx([], {number: 'one', 'b': 3,
+  'c': true,
+  'a': 'bleh',
+  'd': {a: 'hello', b: 3, c: true}
+})))

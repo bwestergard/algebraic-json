@@ -68,7 +68,7 @@ export const tupleResDeclarationTemplate = (i: number, stmt: string): string =>
 
 const requiredPrefix = 'reqField'
 const optionalPrefix = 'optField'
-const variantPrefix = 'variant'
+const variantPrefix = 'exVariant'
 const mixedObjectId = 'obj'
 
 const exStmtsJoiner = (
@@ -136,7 +136,7 @@ andThen(
       ${indentToLevel(
         3,
         recordRecElementsTemplate(
-          extractors.optFieldStmts
+          extractors.reqFieldsStmts
             .map(([key]) => key),
             tag
           )

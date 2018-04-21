@@ -181,22 +181,25 @@ import { mapOk } from './result'
 console.log(
   mapOk(
     parse({
-      type: 'disjoint',
-      tagKey: 'number',
-      variants: {
-        'one': {
-          'b': {type: 'number'},
-          'c': {type: 'boolean'},
-          'a': {type: 'string'},
-          'd?': {
-            type: 'reference',
-            name: 'extractYetAnotherRecord'
+      type: 'nullable',
+      arg: {
+        type: 'disjoint',
+        tagKey: 'number',
+        variants: {
+          'one': {
+            'b': {type: 'number'},
+            'c': {type: 'boolean'},
+            'a': {type: 'string'},
+            'd?': {
+              type: 'reference',
+              name: 'extractYetAnotherRecord'
+            }
+          },
+          'two': {
+            'foo': {type: 'number'},
+            'bar': {type: 'number'},
+            'baz': {type: 'number'}
           }
-        },
-        'two': {
-          'foo': {type: 'number'},
-          'bar': {type: 'number'},
-          'baz': {type: 'number'}
         }
       }
     }),

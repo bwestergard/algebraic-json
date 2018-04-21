@@ -156,23 +156,3 @@ export const parse = (
   }
   return Ok(ast)
 }
-
-console.log(
-  JSON.stringify(
-    parse({
-      type: 'disjoint',
-      tagKey: 'class',
-      variants: {
-        proletarian: {
-          'franchise': { type: 'boolean' },
-          'wageIncome?': { type: 'number' }
-        },
-        bourgeois: {
-          'franchise': { type: 'boolean' },
-          'wageIncome?': { type: 'number' },
-          'capitalIncome': { type: 'number' }
-        }
-      }
-    })
-  )
-)
