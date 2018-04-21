@@ -1,5 +1,6 @@
 /* @flow */
 
+import { type AssocList } from './ast'
 import { indentToLevel, indent } from './stringUtils'
 import { toPairs } from './springbok'
 
@@ -65,14 +66,10 @@ export const tupleResDeclarationTemplate = (i: number, stmt: string): string =>
 
 // Record
 
-const valueResultForKeyPrefix = 'requiredField'
+const requiredPrefix = 'reqField'
+const optionalPrefix = 'optField'
+const variantPrefix = 'variant'
 const mixedObjectId = 'obj'
-
-const requiredRecordFieldStmts = (index, key, exStmt) =>
-`
-const ${valueResultForKeyPrefix}${index} = extractFromKey(${exStmt}, path, '${key}', ${mixedObjectId})
-if (${valueResultForKeyPrefix}${index}.tag === 'Err') return ${valueResultForKeyPrefix}${index}
-`.trim()
 
 const exStmtsJoiner = (
   templateFn: (number, string, string) => string,
@@ -80,47 +77,108 @@ const exStmtsJoiner = (
 ): string =>
 exStmts
 .map(
-  ([key, exStmt], index) => requiredRecordFieldStmts(index, key, exStmt)
+  ([key, exStmt], index) => templateFn(index, key, exStmt)
 )
 .join('\n')
 
 const recordRecElementsTemplate = (
-  requiredExtractors: Array<[string, string]>
+  requiredExtractorKeys: string[],
+  tag: null | {| tagKey: string, tagValue: string |}
 ): string =>
-requiredExtractors
+requiredExtractorKeys
+.reverse()
 .map(
-  ([key], index) => `${key}: ${valueResultForKeyPrefix}${index}.data`
+  (key, index) => `${key}: ${requiredPrefix}${index}.data`
 )
+.concat(tag === null ? [] : [`${tag.tagKey}: '${tag.tagValue}'`])
+.reverse()
 .join(',\n')
+
+const requiredRecordFieldStmts = (index, key, exStmt) =>
+`
+const ${requiredPrefix}${index} = extractFromKey(
+  ${indentToLevel(1, exStmt)},
+  path,
+  '${key}',
+  ${mixedObjectId}
+)
+if (${requiredPrefix}${index}.tag === 'Err') return ${requiredPrefix}${index}
+`.trim()
 
 const optionalRecordFieldStmts = (index, key, exStmt) =>
 `
 if (obj.hasOwnProperty('${key}')) {
-  const d = extractFromKey(${exStmt}, path, '${key}', ${mixedObjectId})
-  if (d.tag === 'Ok') {
-    rec = {...rec, ${key}: ${valueResultForKeyPrefix}${index}.data}
+  const ${optionalPrefix}${index} = extractFromKey(
+    ${indentToLevel(2, exStmt)},
+    path,
+    '${key}',
+    ${mixedObjectId}
+  )
+  if (${optionalPrefix}${index}.tag === 'Ok') {
+    rec = {...rec, ${key}: ${optionalPrefix}${index}.data}
   } else {
-    return ${valueResultForKeyPrefix}${index}
+    return ${optionalPrefix}${index}
   }
 }
 `.trim()
 
 export const recordTemplate = (
-  requiredExtractors: Array<[string, string]>,
-  optionalExtractors: Array<[string, string]>
+  pathStmt: string,
+  xStmt: string,
+  extractors: { reqFieldsStmts: AssocList<string>, optFieldStmts: AssocList<string> },
+  tag: null | {| tagKey: string, tagValue: string |}
 ) => `
 andThen(
-  extractMixedObject(path, x),
+  extractMixedObject(${pathStmt}, ${xStmt}),
   (obj) => {
-    ${indentToLevel(2, exStmtsJoiner(requiredRecordFieldStmts, requiredExtractors))}
-
+    ${indentToLevel(2, exStmtsJoiner(requiredRecordFieldStmts, extractors.reqFieldsStmts))}
     let rec = {
-      ${indentToLevel(3, recordRecElementsTemplate(requiredExtractors))}
+      ${indentToLevel(
+        3,
+        recordRecElementsTemplate(
+          extractors.optFieldStmts
+            .map(([key]) => key),
+            tag
+          )
+        )
+      }
     }
-
-    ${indentToLevel(2, exStmtsJoiner(optionalRecordFieldStmts, requiredExtractors))}
-
+    ${indentToLevel(2, exStmtsJoiner(optionalRecordFieldStmts, extractors.optFieldStmts))}
     return Ok(rec)
   }
 )
+`.trim()
+
+// Disjoint Unions
+
+const variantExtractorFnTemplate = (index, key, exStmt) =>
+`
+const ${variantPrefix}${index} =
+(path, x) => ${exStmt}
+`.trim()
+
+const variantCondTemplate = (index, key, exStmt) =>
+`
+if (tag === '${key}') {
+  return ${variantPrefix}${index}(path, ${mixedObjectId})
+}
+`.trim()
+
+export const disjointUnionTemplate = (
+  variantExtractors: Array<[string, string]>,
+  tagKey: string
+) => `
+(path, x) => {
+  ${indentToLevel(1, exStmtsJoiner(variantExtractorFnTemplate, variantExtractors))}
+  return andThen(
+    extractMixedObject(path, x),
+    (${mixedObjectId}) => andThen(
+      extractFromKey(extractString, path, '${tagKey}', ${mixedObjectId}),
+      (tag) => {
+        ${indentToLevel(4, exStmtsJoiner(variantCondTemplate, variantExtractors))}
+        return Err({path: [...path, '${tagKey}'], message: \`Expected one of the following: ${variantExtractors.map(([key]) => `"${key}"`).join(', ')}. Received "\${tag}".\`})
+      }
+    )
+  )
+}
 `.trim()

@@ -1,10 +1,10 @@
 /* @flow */
 
 import { reduce, toPairs } from './springbok'
-import { type TypeDeclarations, type TypeAST, type TypeTag } from './ast'
+import { type TypeDeclarations, type ParsedTypeAST, type TypeTag, type AssocList, type FieldAssocLists } from './ast'
 import { indent } from './stringUtils'
 import { basicExtractors, type BasicExtractorIdentifier } from './generation/basics'
-import { tupleTemplate, tupleReturnStatementTemplate, tupleResDeclarationTemplate } from './codeTemplates'
+import { tupleTemplate, tupleReturnStatementTemplate, tupleResDeclarationTemplate, recordTemplate, disjointUnionTemplate } from './codeTemplates'
 
 type Dependencies = {[indentifier: BasicExtractorIdentifier]: boolean}
 type Code = string
@@ -39,8 +39,20 @@ exParam.kind === 'abstraction'
 
 const genExtractor = (
   exParam: ExtractorParam,
-  ast: TypeAST
+  ast: ParsedTypeAST
 ): Code => {
+  const generateRecordExtractors = (
+    fields: FieldAssocLists
+  ): { reqFieldsStmts: AssocList<Code>, optFieldStmts: AssocList<Code> } => {
+    const reqFieldsStmts = fields.required
+      .map(([fieldName, ast]) => [fieldName, genExtractor(ab, ast)])
+    const optFieldStmts = fields.optional
+      .map(([fieldName, ast]) => [fieldName, genExtractor(ab, ast)])
+    return {
+      reqFieldsStmts,
+      optFieldStmts
+    }
+  }
   if (
     ast.type === 'string'
   ) {
@@ -100,7 +112,7 @@ const genExtractor = (
     const resStatements: Code =
     ast.fields
     .map(
-      (field: TypeAST, i: number) =>
+      (field: ParsedTypeAST, i: number) =>
         tupleResDeclarationTemplate(i, genExtractor(ap(`[...path, ${i}]`, `x[${i}]`), field))
     )
     .join('\n')
@@ -113,13 +125,43 @@ const genExtractor = (
   } else if (
     ast.type === 'record'
   ) {
-    return `extract000`
+    const extractors = generateRecordExtractors(ast.fields)
+    return exParamFork(
+      `(path, x) => ` + recordTemplate(
+        'path',
+        'x',
+        extractors,
+        null
+      ),
+      (pathStmt, xStmt) => recordTemplate(
+        pathStmt,
+        xStmt,
+        extractors,
+        null
+      ),
+      exParam
+    )
   } else if (
     ast.type === 'disjoint'
   ) {
-    return `extract000`
+    const tagKey = ast.tagKey
+    const variantExtractors = ast.variants
+    .map(
+      ([tagValue, fields]) => [tagValue, recordTemplate(
+        'path',
+        'x',
+        generateRecordExtractors(fields),
+        { tagKey, tagValue }
+      )]
+    )
+    return disjointUnionTemplate(variantExtractors, tagKey)
   } else if (ast.type === 'reference') {
-    return ast.name
+    const abStmt = `${ast.name}`
+    return exParamFork(
+      abStmt,
+      (pathStmt, xStmt) => `(${abStmt})(${pathStmt}, ${xStmt})`,
+      exParam
+    )
   } else if (ast.type === 'enum') {
     const checks: Code = ast.variants.map((literal) => `s === '${literal}'`).join(' || ')
     const list: Code = ast.variants.map((literal) => `"${literal}"`).join(', ')
@@ -133,18 +175,31 @@ const genExtractor = (
   throw Error('Impossible!')
 }
 
+import { parse } from './ast'
+import { mapOk } from './result'
+
 console.log(
-  genExtractor(ab, {
-    type: 'tuple',
-    fields: [
-      { type: 'number' },
-      {
-        type: 'tuple',
-        fields: [
-          { type: 'number' }
-        ]
-      },
-      { type: 'number' }
-    ]
-  })
+  mapOk(
+    parse({
+      type: 'disjoint',
+      tagKey: 'number',
+      variants: {
+        'one': {
+          'b': {type: 'number'},
+          'c': {type: 'boolean'},
+          'a': {type: 'string'},
+          'd?': {
+            type: 'reference',
+            name: 'extractYetAnotherRecord'
+          }
+        },
+        'two': {
+          'foo': {type: 'number'},
+          'bar': {type: 'number'},
+          'baz': {type: 'number'}
+        }
+      }
+    }),
+    (parsed) => genExtractor(ap('path', 'x'), parsed)
+  ).data
 )

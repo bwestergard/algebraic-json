@@ -207,6 +207,62 @@ andThen(
   }
 )
 
+type YetAnotherRecord = {
+  a: string,
+  b: number,
+  c: boolean,
+  d?: YetAnotherRecord
+}
+const extractYetAnotherRecord = (
+  path: JSONPath,
+  x: mixed
+): Result<YetAnotherRecord, ExtractionError> =>
+andThen(
+  extractMixedObject(path, x),
+  (obj) => {
+    const reqField0 = extractFromKey(
+      extractString,
+      path,
+      'a',
+      obj
+    )
+    if (reqField0.tag === 'Err') return reqField0
+    const reqField1 = extractFromKey(
+      extractNumber,
+      path,
+      'b',
+      obj
+    )
+    if (reqField1.tag === 'Err') return reqField1
+    const reqField2 = extractFromKey(
+      extractBoolean,
+      path,
+      'c',
+      obj
+    )
+    if (reqField2.tag === 'Err') return reqField2
+    let rec = {
+      a: reqField0.data,
+      b: reqField1.data,
+      c: reqField2.data
+    }
+    if (obj.hasOwnProperty('d')) {
+      const optField0 = extractFromKey(
+        extractYetAnotherRecord,
+        path,
+        'd',
+        obj
+      )
+      if (optField0.tag === 'Ok') {
+        rec = {...rec, d: optField0.data}
+      } else {
+        return optField0
+      }
+    }
+    return Ok(rec)
+  }
+)
+
 const extractExampleRecord = (
   path: JSONPath,
   x: mixed
@@ -289,6 +345,10 @@ const extractCitizen = (
     )
   )
 
+  const obj = extractMixedObject(path, x)
+  if (obj.tag === 'Err') return obj
+  const tag = extractFromKey(extractString, path, 'socialClass', obj.data)
+  if (tag.tag === 'Err') return tag
   return andThen(
     extractMixedObject(path, x),
     (obj) => andThen(
@@ -301,6 +361,101 @@ const extractCitizen = (
           return proletarian(path, x)
         }
         return Err({path: [...path, "socialClass"], message: `Expected one of the following: "bourgeois", "proletarian". Received "${socialClass}".`})
+      }
+    )
+  )
+}
+
+const extractDisjointEx = (path: JSONPath, x: mixed) => {
+  const variant0 =
+  (path, x) => andThen(
+    extractMixedObject(path, x),
+    (obj) => {
+      const reqField0 = extractFromKey(
+        extractString,
+        path,
+        'a',
+        obj
+      )
+      if (reqField0.tag === 'Err') return reqField0
+      const reqField1 = extractFromKey(
+        extractNumber,
+        path,
+        'b',
+        obj
+      )
+      if (reqField1.tag === 'Err') return reqField1
+      const reqField2 = extractFromKey(
+        extractBoolean,
+        path,
+        'c',
+        obj
+      )
+      if (reqField2.tag === 'Err') return reqField2
+      let rec = {
+        number: 'one',
+        d: reqField0.data
+      }
+      if (obj.hasOwnProperty('d')) {
+        const optField0 = extractFromKey(
+          extractYetAnotherRecord,
+          path,
+          'd',
+          obj
+        )
+        if (optField0.tag === 'Ok') {
+          rec = {...rec, d: optField0.data}
+        } else {
+          return optField0
+        }
+      }
+      return Ok(rec)
+    }
+  )
+  const variant1 =
+  (path, x) => andThen(
+    extractMixedObject(path, x),
+    (obj) => {
+      const reqField0 = extractFromKey(
+        extractNumber,
+        path,
+        'a',
+        obj
+      )
+      if (reqField0.tag === 'Err') return reqField0
+      const reqField1 = extractFromKey(
+        extractNumber,
+        path,
+        'b',
+        obj
+      )
+      if (reqField1.tag === 'Err') return reqField1
+      const reqField2 = extractFromKey(
+        extractNumber,
+        path,
+        'c',
+        obj
+      )
+      if (reqField2.tag === 'Err') return reqField2
+      let rec = {
+        number: 'two'
+      }
+
+      return Ok(rec)
+    }
+  )
+  return andThen(
+    extractMixedObject(path, x),
+    (obj) => andThen(
+      extractFromKey(extractString, path, 'number', obj),
+      (tag) => {
+        if (tag === 'one') {
+          return variant0(path, obj)
+        }
+        if (tag === 'two') {
+          return variant1(path, obj)
+        }
+        return Err({path: [...path, 'number'], message: `Expected one of the following: "one", "two". Received "${tag}".`})
       }
     )
   )

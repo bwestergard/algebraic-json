@@ -5,12 +5,12 @@ import { toPairs } from './springbok'
 
 type FieldDict = { [fieldName: string]: TypeAST }
 
-type AssocList<T> = Array<[string, T]>
-type FieldAssocLists = { required: AssocList<ParsedTypeAST>, optional: AssocList<ParsedTypeAST> }
+export type AssocList<T> = Array<[string, T]>
+export type FieldAssocLists = { required: AssocList<ParsedTypeAST>, optional: AssocList<ParsedTypeAST> }
 type NamedVariants = AssocList<FieldAssocLists>
 type OptField = { required: boolean, type: ParsedTypeAST }
 
-export type TypeAST =
+type TypeAST =
 | {| type: 'string' |} // Prim
 | {| type: 'number' |} // Prim
 | {| type: 'boolean' |} // Prim
@@ -37,7 +37,7 @@ export type ParsedTypeAST =
 | {| type: 'disjoint', tagKey: string, variants: NamedVariants |} // Ex
 
 export type TypeTag = $PropertyType<TypeAST, 'type'>
-export type TypeDeclarations = {[identifier: string]: TypeAST}
+export type TypeDeclarations = { [identifier: string]: ParsedTypeAST }
 
 // PARSING
 
@@ -49,7 +49,7 @@ toPairs(obj)
 .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
 
 
-const parse = (
+export const parse = (
   ast: TypeAST
 ): Result<ParsedTypeAST, string> => {
 
@@ -164,21 +164,6 @@ console.log(
       tagKey: 'class',
       variants: {
         proletarian: {
-          'child?': {
-            type: 'disjoint',
-            tagKey: 'class',
-            variants: {
-              proletarian: {
-                'franchise': { type: 'boolean' },
-                'wageIncome?': { type: 'number' }
-              },
-              bourgeois: {
-                'franchise': { type: 'boolean' },
-                'wageIncome?': { type: 'number' },
-                'capitalIncome': { type: 'number' }
-              }
-            }
-          },
           'franchise': { type: 'boolean' },
           'wageIncome?': { type: 'number' }
         },
