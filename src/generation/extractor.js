@@ -1,25 +1,24 @@
 /* @flow */
 
-import { reduce, toPairs } from './springbok'
-import { type TypeDeclarations, type ParsedTypeAST, type TypeTag, type AssocList, type FieldAssocLists } from './ast'
+import { reduce, toPairs } from '../springbok'
+import {
+  type TypeDeclarations,
+  type ParsedTypeAST,
+  type TypeTag,
+  type AssocList,
+  type FieldAssocLists
+} from '../structures/ast'
 import { indent } from './stringUtils'
-import { basicExtractors, type BasicExtractorIdentifier } from './generation/basics'
-import { tupleTemplate, tupleReturnStatementTemplate, tupleResDeclarationTemplate, recordTemplate, disjointUnionTemplate } from './codeTemplates'
+import {
+  tupleTemplate,
+  tupleReturnStatementTemplate,
+  tupleResDeclarationTemplate,
+  recordTemplate,
+  disjointUnionTemplate
+} from './codeTemplates'
+import { type ParsedDeclarations } from '../structures/module'
 
-type Dependencies = {[indentifier: BasicExtractorIdentifier]: boolean}
 type Code = string
-type GenFrame = {|
-  deps: Dependencies,
-  code: Code
-|}
-
-const addDeps = (
-  deps: Dependencies,
-  ids: BasicExtractorIdentifier[]
-): Dependencies => ids.reduce(
-  (acc, dep) => ({...deps, [dep]: true}),
-  deps
-)
 
 type ExtractorParam =
 | {| kind: 'abstraction' |}
@@ -175,8 +174,8 @@ const genExtractor = (
   throw Error('Impossible!')
 }
 
-import { parse } from './ast'
-import { mapOk } from './result'
+import { parse } from '../structures/ast'
+import { mapOk } from '../result'
 
 console.log(
   mapOk(
@@ -204,5 +203,6 @@ console.log(
       }
     }),
     (parsed) => genExtractor(ap('path', 'x'), parsed)
+    // $FlowFixMe
   ).data
 )

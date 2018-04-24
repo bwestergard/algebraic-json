@@ -9,9 +9,9 @@ import {
   type Result
 } from './result'
 
-type JSONPath = Array<string | number>
+export type JSONPath = Array<string | number>
 
-type ExtractionError = {|
+export type ExtractionError = {|
   +path: JSONPath,
   +message: string
 |}

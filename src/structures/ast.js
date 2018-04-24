@@ -1,7 +1,7 @@
 /* @flow */
 
-import { Ok, Err, andThen, mapOk, type Result, collectResultArray } from './result'
-import { toPairs } from './springbok'
+import { Ok, Err, andThen, mapOk, type Result, collectResultArray } from '../result'
+import { toPairs } from '../springbok'
 
 type FieldDict = { [fieldName: string]: TypeAST }
 

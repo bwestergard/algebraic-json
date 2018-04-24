@@ -1,8 +1,11 @@
 /* @flow */
 
-import { type AssocList } from './ast'
+import { type AssocList } from '../structures/ast'
 import { indentToLevel, indent } from './stringUtils'
-import { toPairs } from './springbok'
+import { toPairs } from '../springbok'
+
+export const extractorFunctionIdGen = (typeId: string) =>
+`extractor${typeId.slice(0,1).toUpperCase() + typeId.slice(1)}`
 
 const elementPrefix = 'el'
 const resultPrefix = 'res'
@@ -181,4 +184,44 @@ export const disjointUnionTemplate = (
     )
   )
 }
+`.trim()
+
+// Flow Declarations
+
+export const tupleDecTemplate = (fieldDecs: string[]): string =>
+`
+[
+  ${indentToLevel(1, fieldDecs.join(',\n'))}
+]
+`.trim()
+
+export const recordDecTemplate = (fieldDecs: string[], tag: null | {tagKey: string, tagValue: string}): string =>
+`
+{
+  ${indentToLevel(1, fieldDecs.join(',\n'))}
+}
+`.trim()
+
+// Extractor tupleTemplate
+
+export const extractorModuleTemplate = (
+  flowDecs: string,
+  extractors: string
+) => `
+import \{ Ok, Err, andThen, mapOk, collectResultArrayIndexed, collectResultMap, type Result \} from './result'
+import \{
+  extractString,
+  extractNumber,
+  extractBoolean,
+  extractMixedArray,
+  extractMixedObject,
+  extractArrayOf,
+  extractDictionary,
+  extractNullableOf,
+  extractFromKey
+\} from './extractors'
+
+${flowDecs}
+
+${extractors}
 `.trim()

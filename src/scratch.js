@@ -1,6 +1,15 @@
 // @flow
 
-import { Ok, Err, andThen, mapOk, collectResultArrayIndexed, collectResultMap, type Result } from './result'
+import {
+  Ok,
+  Err,
+  andThen,
+  mapOk,
+  collectResultArrayIndexed,
+  collectResultMap,
+  type Result
+} from './result'
+
 import {
   extractString,
   extractNumber,
@@ -10,16 +19,12 @@ import {
   extractArrayOf,
   extractDictionary,
   extractNullableOf,
-  extractFromKey
+  extractFromKey,
+  type JSONPath,
+  type ExtractionError
  } from './extractors'
+
 // Extraction Error Types
-
-type JSONPath = Array<string | number>
-
-type ExtractionError = {|
-  +path: JSONPath,
-  +message: string
-|}
 
 /// TypeAST
 
