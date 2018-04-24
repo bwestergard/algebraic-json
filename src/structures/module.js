@@ -1,5 +1,6 @@
 /* @flow */
 
 import { type ParsedTypeAST } from './ast'
+import { type AssocList } from './assocList'
 
-export type ParsedDeclarations = { [path: string]: ParsedTypeAST }
+export type ParsedDeclarations = AssocList<ParsedTypeAST>

@@ -1,11 +1,14 @@
 /* @flow */
 
-import { type AssocList } from '../structures/ast'
+import { type AssocList } from '../structures/assocList'
 import { indentToLevel, indent } from './stringUtils'
 import { toPairs } from '../springbok'
 
 export const extractorFunctionIdGen = (typeId: string) =>
-`extractor${typeId.slice(0,1).toUpperCase() + typeId.slice(1)}`
+`extract\$${flowTypeIdGen(typeId)}`
+
+export const flowTypeIdGen = (typeId: string) =>
+typeId.slice(0,1).toUpperCase() + typeId.slice(1)
 
 const elementPrefix = 'el'
 const resultPrefix = 'res'
@@ -208,6 +211,8 @@ export const extractorModuleTemplate = (
   flowDecs: string,
   extractors: string
 ) => `
+/* @flow */
+
 import \{ Ok, Err, andThen, mapOk, collectResultArrayIndexed, collectResultMap, type Result \} from './result'
 import \{
   extractString,

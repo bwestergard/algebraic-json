@@ -5,9 +5,9 @@ import {
   type TypeDeclarations,
   type ParsedTypeAST,
   type TypeTag,
-  type AssocList,
   type FieldAssocLists
 } from '../structures/ast'
+import { type AssocList } from '../structures/assocList'
 import { indent } from './stringUtils'
 import {
   tupleTemplate,
@@ -36,7 +36,7 @@ exParam.kind === 'abstraction'
   ? abStmt
   : apFn(exParam.pathStmt, exParam.xStmt)
 
-const genExtractor = (
+export const genExtractor = (
   exParam: ExtractorParam,
   ast: ParsedTypeAST
 ): Code => {
@@ -173,36 +173,3 @@ const genExtractor = (
   }
   throw Error('Impossible!')
 }
-
-import { parse } from '../structures/ast'
-import { mapOk } from '../result'
-
-console.log(
-  mapOk(
-    parse({
-      type: 'nullable',
-      arg: {
-        type: 'disjoint',
-        tagKey: 'number',
-        variants: {
-          'one': {
-            'b': {type: 'number'},
-            'c': {type: 'boolean'},
-            'a': {type: 'string'},
-            'd?': {
-              type: 'reference',
-              name: 'extractYetAnotherRecord'
-            }
-          },
-          'two': {
-            'foo': {type: 'number'},
-            'bar': {type: 'number'},
-            'baz': {type: 'number'}
-          }
-        }
-      }
-    }),
-    (parsed) => genExtractor(ap('path', 'x'), parsed)
-    // $FlowFixMe
-  ).data
-)

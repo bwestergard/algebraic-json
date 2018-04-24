@@ -2,10 +2,10 @@
 
 import { Ok, Err, andThen, mapOk, type Result, collectResultArray } from '../result'
 import { toPairs } from '../springbok'
+import { type AssocList, toAssocList } from './assocList'
 
 type FieldDict = { [fieldName: string]: TypeAST }
 
-export type AssocList<T> = Array<[string, T]>
 export type FieldAssocLists = { required: AssocList<ParsedTypeAST>, optional: AssocList<ParsedTypeAST> }
 type NamedVariants = AssocList<FieldAssocLists>
 type OptField = { required: boolean, type: ParsedTypeAST }
@@ -40,14 +40,6 @@ export type TypeTag = $PropertyType<TypeAST, 'type'>
 export type TypeDeclarations = { [identifier: string]: ParsedTypeAST }
 
 // PARSING
-
-// Sort because iteration order of JSON objects is not guaranteed, and we want stable code output.
-const toAssocList = <T>(
-  obj: {[key: string]: T}
-): AssocList<T> =>
-toPairs(obj)
-.sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
-
 
 export const parse = (
   ast: TypeAST

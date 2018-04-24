@@ -1,10 +1,9 @@
 /* @flow */
 
 import { extractorFunctionIdGen, tupleDecTemplate, recordDecTemplate } from './codeTemplates'
-import { mapOk } from '../result'
 import { type ParsedTypeAST, parse } from '../structures/ast'
 
-const genFlowTypeDec = (ast: ParsedTypeAST): string => {
+export const genFlowTypeDec = (ast: ParsedTypeAST): string => {
   const recordDeclaration = (fields, tag: null | {tagKey: string, tagValue: string}) =>
   recordDecTemplate(
     fields.required
