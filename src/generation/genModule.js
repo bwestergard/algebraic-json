@@ -3,7 +3,12 @@
 import { genFlowTypeDec } from './genFlowTypeDec'
 import { genExtractor } from './genExtractor'
 import { type ParsedDeclarations } from '../structures/module'
-import { extractorModuleTemplate, extractorFunctionIdGen, flowTypeIdGen } from './codeTemplates'
+import {
+  extractorModuleTemplate,
+  extractorFunctionIdGen,
+  flowTypeIdGen,
+  extractorFuncDecTemplate
+} from './codeTemplates'
 
 const genModule = (
   typeDeclarations: ParsedDeclarations
@@ -15,17 +20,33 @@ const genModule = (
   .join('\n\n')
   const extractors = typeDeclarations
   .map(
-    ([typeId, pAst]) =>
-    `export const ${extractorFunctionIdGen(typeId)} = ${genExtractor({kind: 'application', pathStmt: 'path', xStmt: 'x'}, pAst)}`
+    ([typeId, pAst]) => extractorFuncDecTemplate(
+      typeId,
+      genExtractor({kind: 'application', pathStmt: 'path', xStmt: 'x'}, pAst)
+    )
   )
-  .join('\n\n')
+  .join('\n')
   return extractorModuleTemplate(flowDecs, extractors)
 }
 
 console.log(
   genModule(
     [
-      ['name', {type: 'string'}]
+      ['orders', {type: 'array', arg: {type: 'record', fields: {
+        optional: [],
+        required: [
+          ['buyer', {type: 'reference', name: 'person'}],
+          ['consumer', {type: 'reference', name: 'person'}],
+          ['cost', {type: 'number'}]
+        ]
+      }}}],
+      ['person', {type: 'record', fields: {
+        optional: [],
+        required: [
+          ['firstName', {type: 'string'}],
+          ['lastName', {type: 'string'}]
+        ]
+      }}]
     ]
-  ) 
+  )
 )

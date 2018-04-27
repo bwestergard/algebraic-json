@@ -14,7 +14,8 @@ import {
   tupleReturnStatementTemplate,
   tupleResDeclarationTemplate,
   recordTemplate,
-  disjointUnionTemplate
+  disjointUnionTemplate,
+  extractorFunctionIdGen
 } from './codeTemplates'
 import { type ParsedDeclarations } from '../structures/module'
 
@@ -155,7 +156,7 @@ export const genExtractor = (
     )
     return disjointUnionTemplate(variantExtractors, tagKey)
   } else if (ast.type === 'reference') {
-    const abStmt = `${ast.name}`
+    const abStmt = extractorFunctionIdGen(ast.name)
     return exParamFork(
       abStmt,
       (pathStmt, xStmt) => `(${abStmt})(${pathStmt}, ${xStmt})`,

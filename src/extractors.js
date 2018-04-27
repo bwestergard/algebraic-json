@@ -4,17 +4,31 @@ import {
   Ok,
   Err,
   andThen,
+  mapErr,
   collectResultArrayIndexed,
   collectResultMap,
   type Result
 } from './result'
 
-export type JSONPath = Array<string | number>
+type JSONPathElement = string | number
+export type JSONPath = Array<JSONPathElement>
 
 export type ExtractionError = {|
   +path: JSONPath,
   +message: string
 |}
+
+const prependToPath = <T>(
+  pathPrefixEl: JSONPathElement,
+  result: Result<T,ExtractionError>
+): Result<T,ExtractionError> =>
+mapErr(
+  result,
+  ({message, path}) => ({
+    message,
+    path: [pathPrefixEl].concat(path)
+  })
+)
 
 export const extractString = (path: JSONPath, x: mixed): Result<string,ExtractionError> =>
 x !== null

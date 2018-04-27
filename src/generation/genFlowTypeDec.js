@@ -1,6 +1,6 @@
 /* @flow */
 
-import { extractorFunctionIdGen, tupleDecTemplate, recordDecTemplate } from './codeTemplates'
+import { flowTypeIdGen, tupleDecTemplate, recordDecTemplate } from './codeTemplates'
 import { type ParsedTypeAST, parse } from '../structures/ast'
 
 export const genFlowTypeDec = (ast: ParsedTypeAST): string => {
@@ -29,7 +29,7 @@ export const genFlowTypeDec = (ast: ParsedTypeAST): string => {
   }
   if (ast.type === 'reference') {
     // TODO .name is a bad attribute name
-    return extractorFunctionIdGen(ast.name)
+    return flowTypeIdGen(ast.name)
   }
   if (ast.type === 'array') {
     return `Array<${genFlowTypeDec(ast.arg)}>`

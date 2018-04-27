@@ -92,12 +92,10 @@ const recordRecElementsTemplate = (
   tag: null | {| tagKey: string, tagValue: string |}
 ): string =>
 requiredExtractorKeys
-.reverse()
 .map(
   (key, index) => `${key}: ${requiredPrefix}${index}.data`
 )
 .concat(tag === null ? [] : [`${tag.tagKey}: '${tag.tagValue}'`])
-.reverse()
 .join(',\n')
 
 const requiredRecordFieldStmts = (index, key, exStmt) =>
@@ -223,10 +221,24 @@ import \{
   extractArrayOf,
   extractDictionary,
   extractNullableOf,
-  extractFromKey
+  extractFromKey,
+  type ExtractionError,
+  type JSONPath
 \} from './extractors'
 
 ${flowDecs}
 
 ${extractors}
+`.trim()
+
+export const extractorFuncDecTemplate = (
+  typeId: string,
+  extractorStmt: string
+): string =>
+`
+export const ${extractorFunctionIdGen(typeId)} = (
+  path: JSONPath,
+  x: mixed
+): Result<${flowTypeIdGen(typeId)},ExtractionError> =>
+${extractorStmt}
 `.trim()
