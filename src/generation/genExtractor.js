@@ -23,19 +23,19 @@ type Code = string
 
 type ExtractorParam =
 | {| kind: 'abstraction' |}
-| {| kind: 'application', pathStmt: Code, xStmt: Code |}
+| {| kind: 'application', xStmt: Code |}
 
 const ab: ExtractorParam = { kind: 'abstraction' }
-const ap = (pathStmt: Code, xStmt: Code): ExtractorParam => ({ kind: 'application', pathStmt, xStmt})
+const ap = (pathStmt: Code, xStmt: Code): ExtractorParam => ({ kind: 'application', xStmt})
 
 const exParamFork = (
   abStmt: Code,
-  apFn: (pathStmt: Code, xStmt: Code) => Code,
+  apFn: (xStmt: Code) => Code,
   exParam: ExtractorParam
 ): Code =>
 exParam.kind === 'abstraction'
   ? abStmt
-  : apFn(exParam.pathStmt, exParam.xStmt)
+  : apFn(exParam.xStmt)
 
 export const genExtractor = (
   exParam: ExtractorParam,
@@ -59,21 +59,21 @@ export const genExtractor = (
     const exId = 'extractString'
     return exParamFork(
       exId,
-      (pathStmt, xStmt) => `${exId}(${pathStmt}, ${xStmt})`,
+      (xStmt) => `${exId}(${xStmt})`,
       exParam
     )
   } else if (ast.type === 'number') {
     const exId = 'extractNumber'
     return exParamFork(
       exId,
-      (pathStmt, xStmt) => `${exId}(${pathStmt}, ${xStmt})`,
+      (xStmt) => `${exId}(${xStmt})`,
       exParam
     )
   } else if (ast.type === 'boolean') {
     const exId = 'extractBoolean'
     return exParamFork(
       exId,
-      (pathStmt, xStmt) => `${exId}(${pathStmt}, ${xStmt})`,
+      (xStmt) => `${exId}(${xStmt})`,
       exParam
     )
   } else if (
@@ -82,8 +82,8 @@ export const genExtractor = (
     const exId = 'extractArrayOf'
     const code = genExtractor(ab, ast.arg)
     return exParamFork(
-      `(path: JSONPath, x: mixed) => ${exId}(\n${indent(code)},\n  path,\n  x\n)`,
-      (pathStmt, xStmt) => `${exId}(\n${indent(code)},\n  ${pathStmt},\n  ${xStmt}\n)`,
+      `(x) => ${exId}(\n${indent(code)},\n  x\n)`,
+      (xStmt) => `${exId}(\n${indent(code)})`,
       exParam
     )
   } else if (
@@ -92,8 +92,8 @@ export const genExtractor = (
     const exId = 'extractNullableOf'
     const code = genExtractor(ab, ast.arg)
     return exParamFork(
-      `(path: JSONPath, x: mixed) => ${exId}(\n${indent(code)},\n  path,\n  x\n)`,
-      (pathStmt, xStmt) => `${exId}(\n${indent(code)},\n  ${pathStmt},\n  ${xStmt}\n)`,
+      `(path: JSONPath, x: mixed) => ${exId}(\n${indent(code)},\n  x\n)`,
+      (xStmt) => `${exId}(\n${indent(code)},\n  ${xStmt}\n)`,
       exParam
     )
   } else if (
@@ -103,7 +103,7 @@ export const genExtractor = (
     const code = genExtractor(ab, ast.arg)
     return exParamFork(
       exId,
-      (pathStmt, xStmt) => `${exId}(\n${indent(code)},\n  ${pathStmt},\n  ${xStmt}\n)`,
+      (xStmt) => `${exId}(\n${indent(code)},\n  ${xStmt}\n)`,
       exParam
     )
   } else if (
@@ -119,7 +119,7 @@ export const genExtractor = (
     const abStmt = tupleTemplate(ast.fields.length, resStatements)
     return exParamFork(
       abStmt,
-      (pathStmt, xStmt) => `(${abStmt})(${pathStmt}, ${xStmt})`,
+      (xStmt) => `(${abStmt})(${xStmt})`,
       exParam
     )
   } else if (
@@ -127,14 +127,12 @@ export const genExtractor = (
   ) {
     const extractors = generateRecordExtractors(ast.fields)
     return exParamFork(
-      `(path, x) => ` + recordTemplate(
-        'path',
+      `(x) => ` + recordTemplate(
         'x',
         extractors,
         null
       ),
-      (pathStmt, xStmt) => recordTemplate(
-        pathStmt,
+      (xStmt) => recordTemplate(
         xStmt,
         extractors,
         null
@@ -148,7 +146,6 @@ export const genExtractor = (
     const variantExtractors = ast.variants
     .map(
       ([tagValue, fields]) => [tagValue, recordTemplate(
-        'path',
         'x',
         generateRecordExtractors(fields),
         { tagKey, tagValue }
@@ -159,7 +156,7 @@ export const genExtractor = (
     const abStmt = extractorFunctionIdGen(ast.name)
     return exParamFork(
       abStmt,
-      (pathStmt, xStmt) => `(${abStmt})(${pathStmt}, ${xStmt})`,
+      (xStmt) => `(${abStmt})(${xStmt})`,
       exParam
     )
   } else if (ast.type === 'enum') {
@@ -168,7 +165,7 @@ export const genExtractor = (
     const abStmt = `(path: JSONPath, x: mixed) => andThen(\n  extractString(path, x),\n  (s) => (${checks})\n    ? Ok(s)\n    : Err({path, message: \`String value "\${s}" is not one of: ${list}.\`})\n)`
     return exParamFork(
       abStmt,
-      (pathStmt, xStmt) => `(${abStmt})(${pathStmt}, ${xStmt})`,
+      (xStmt) => `(${abStmt})(${xStmt})`,
       exParam
     )
   }

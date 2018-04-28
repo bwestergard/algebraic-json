@@ -27,16 +27,16 @@ export const tupleTemplate = (
   arity: number,
   resStatements: string
 ): string => `
-(path: JSONPath, x: mixed) => {
+(x: mixed) => {
   if (Array.isArray(x)) {
     if (x.length !== ${arity}) {
-      return Err({path, message: \`Expected ${arity} elements, received \${x.length}.\`})
+      return exErr(\`Expected ${arity} element${arity === 1 ? '' : 's'}, received \${x.length}.\`)
     }
 
     ${indentToLevel(2, resStatements)}
     return ${indentToLevel(2, tupleReturnStatementTemplate(arity))}
   }
-  return Err({path, message: \`Expected an array, got a \${typeof x}.\`})
+  return exErr(\`Expected an array, got a \${typeof x}.\`)
 }
 `.trim()
 
@@ -102,7 +102,6 @@ const requiredRecordFieldStmts = (index, key, exStmt) =>
 `
 const ${requiredPrefix}${index} = extractFromKey(
   ${indentToLevel(1, exStmt)},
-  path,
   '${key}',
   ${mixedObjectId}
 )
@@ -114,7 +113,6 @@ const optionalRecordFieldStmts = (index, key, exStmt) =>
 if (obj.hasOwnProperty('${key}')) {
   const ${optionalPrefix}${index} = extractFromKey(
     ${indentToLevel(2, exStmt)},
-    path,
     '${key}',
     ${mixedObjectId}
   )
@@ -127,13 +125,12 @@ if (obj.hasOwnProperty('${key}')) {
 `.trim()
 
 export const recordTemplate = (
-  pathStmt: string,
   xStmt: string,
   extractors: { reqFieldsStmts: AssocList<string>, optFieldStmts: AssocList<string> },
   tag: null | {| tagKey: string, tagValue: string |}
 ) => `
 andThen(
-  extractMixedObject(${pathStmt}, ${xStmt}),
+  extractMixedObject(${xStmt}),
   (obj) => {
     ${indentToLevel(2, exStmtsJoiner(requiredRecordFieldStmts, extractors.reqFieldsStmts))}
     let rec = {
@@ -158,13 +155,13 @@ andThen(
 const variantExtractorFnTemplate = (index, key, exStmt) =>
 `
 const ${variantPrefix}${index} =
-(path, x) => ${exStmt}
+(x) => ${exStmt}
 `.trim()
 
 const variantCondTemplate = (index, key, exStmt) =>
 `
 if (tag === '${key}') {
-  return ${variantPrefix}${index}(path, ${mixedObjectId})
+  return ${variantPrefix}${index}(${mixedObjectId})
 }
 `.trim()
 
@@ -172,15 +169,15 @@ export const disjointUnionTemplate = (
   variantExtractors: Array<[string, string]>,
   tagKey: string
 ) => `
-(path, x) => {
+(x) => {
   ${indentToLevel(1, exStmtsJoiner(variantExtractorFnTemplate, variantExtractors))}
   return andThen(
-    extractMixedObject(path, x),
+    extractMixedObject(x),
     (${mixedObjectId}) => andThen(
-      extractFromKey(extractString, path, '${tagKey}', ${mixedObjectId}),
+      extractFromKey(extractString, '${tagKey}', ${mixedObjectId}),
       (tag) => {
         ${indentToLevel(4, exStmtsJoiner(variantCondTemplate, variantExtractors))}
-        return Err({path: [...path, '${tagKey}'], message: \`Expected one of the following: ${variantExtractors.map(([key]) => `"${key}"`).join(', ')}. Received "\${tag}".\`})
+        return exErr(\`Expected one of the following: ${variantExtractors.map(([key]) => `"${key}"`).join(', ')}. Received "\${tag}".\`)
       }
     )
   )
@@ -222,6 +219,7 @@ import \{
   extractDictionary,
   extractNullableOf,
   extractFromKey,
+  exErr,
   type ExtractionError,
   type JSONPath
 \} from './extractors'
@@ -237,7 +235,6 @@ export const extractorFuncDecTemplate = (
 ): string =>
 `
 export const ${extractorFunctionIdGen(typeId)} = (
-  path: JSONPath,
   x: mixed
 ): Result<${flowTypeIdGen(typeId)},ExtractionError> =>
 ${extractorStmt}

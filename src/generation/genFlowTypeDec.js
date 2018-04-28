@@ -11,9 +11,7 @@ export const genFlowTypeDec = (ast: ParsedTypeAST): string => {
       fields.optional.map(([fieldName, type]) => [fieldName + '?', type])
     )
     .map(([fieldName, type]) => `${fieldName}: ${genFlowTypeDec(type)}`)
-    .reverse()
-    .concat((tag === null ? [] : [`${tag.tagKey}: "${tag.tagValue}"`]))
-    .reverse(),
+    .concat((tag === null ? [] : [`${tag.tagKey}: "${tag.tagValue}"`])),
     tag
   )
 

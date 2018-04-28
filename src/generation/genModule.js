@@ -22,7 +22,7 @@ const genModule = (
   .map(
     ([typeId, pAst]) => extractorFuncDecTemplate(
       typeId,
-      genExtractor({kind: 'application', pathStmt: 'path', xStmt: 'x'}, pAst)
+      genExtractor({kind: 'application', xStmt: 'x'}, pAst)
     )
   )
   .join('\n')
@@ -41,7 +41,10 @@ console.log(
         ]
       }}}],
       ['person', {type: 'record', fields: {
-        optional: [],
+        optional: [
+          ['middleName', {type: 'string'}],
+          ['alterEgos', {type: 'array', arg: {type: 'array', arg: {type: 'array', arg: {type: 'reference', name: 'person'}}}}]
+        ],
         required: [
           ['firstName', {type: 'string'}],
           ['lastName', {type: 'string'}]

@@ -18,6 +18,13 @@ export type ExtractionError = {|
   +message: string
 |}
 
+export const exErr = <T>(
+  message: string
+): Result<T,ExtractionError> => Err({
+  path: [],
+  message
+})
+
 const prependToPath = <T>(
   pathPrefixEl: JSONPathElement,
   result: Result<T,ExtractionError>
@@ -30,81 +37,77 @@ mapErr(
   })
 )
 
-export const extractString = (path: JSONPath, x: mixed): Result<string,ExtractionError> =>
+export const extractString = (x: mixed): Result<string,ExtractionError> =>
 x !== null
   ? typeof x === 'string'
     ? Ok(x)
-    : Err({path, message: `Expected string, received ${typeof x}.`})
-  : Err({path, message: `Expected string, received null.`})
+    : exErr(`Expected string, received ${typeof x}.`)
+  : exErr(`Expected string, received null.`)
 
 
-export const extractNumber = (path: JSONPath, x: mixed): Result<number,ExtractionError> =>
+export const extractNumber = (x: mixed): Result<number,ExtractionError> =>
 x !== null
   ? typeof x === 'number'
     ? Ok(x)
-    : Err({path, message: `Expected number, received ${typeof x}.`})
-  : Err({path, message: `Expected number, received null.`})
+    : exErr(`Expected number, received ${typeof x}.`)
+  : exErr(`Expected number, received null.`)
 
-export const extractBoolean = (path: JSONPath, x: mixed): Result<boolean,ExtractionError> =>
+export const extractBoolean = (x: mixed): Result<boolean,ExtractionError> =>
   x !== null
     ? x === true || x === false
       ? Ok(x)
-      : Err({path, message: `Expected boolean, received ${typeof x}.`})
-    : Err({path, message: `Expected boolean, received null.`})
+      : exErr(`Expected boolean, received ${typeof x}.`)
+    : exErr(`Expected boolean, received null.`)
 
 export const extractArrayOf = <T>(
-  extractor: (path: JSONPath, x: mixed) => Result<T,ExtractionError>,
-  path: JSONPath,
+  extractor: (x: mixed) => Result<T,ExtractionError>,
   x: mixed
 ): Result<Array<T>, ExtractionError> =>
 andThen(
-  extractMixedArray(path, x),
+  extractMixedArray(x),
   (arr) => collectResultArrayIndexed(
     arr,
-    (index, val) => extractor([...path, index], val)
+    (index, val) => prependToPath(index, extractor(val))
   )
 )
 
 export const extractDictionary = <T>(
-  extractor: (path: JSONPath, x: mixed) => Result<T,ExtractionError>,
-  path: JSONPath,
+  extractor: (x: mixed) => Result<T,ExtractionError>,
   x: mixed
 ): Result<{[string]: T}, ExtractionError> =>
 andThen(
-  extractMixedObject(path, x),
+  extractMixedObject(x),
   (obj) => collectResultMap(
     obj,
-    (key, val) => extractor([...path, key], val)
+    (key, val) => prependToPath(key, extractor(val))
   )
 )
 
 export const extractNullableOf = <T>(
-  extractor: (path: JSONPath, x: mixed) => Result<T,ExtractionError>,
-  path: JSONPath,
+  extractor: (x: mixed) => Result<T,ExtractionError>,
   x: mixed
 ): Result<T | null, ExtractionError> =>
 x === null
   ? Ok(null)
-  : extractor(path, x)
+  : extractor(x)
 
-export const extractMixedArray = (path: JSONPath, x: mixed): Result<Array<mixed>,ExtractionError> =>
-Array.isArray(x) && x !== null ? Ok(x) : Err({path, message: `Expected array.`})
+export const extractMixedArray = (x: mixed): Result<Array<mixed>,ExtractionError> =>
+Array.isArray(x) && x !== null ? Ok(x) : exErr(`Expected array.`)
 
-export const extractMixedObject = (path: JSONPath, x: mixed): Result<{[key: string]: mixed}, ExtractionError> =>
+export const extractMixedObject = (x: mixed): Result<{[key: string]: mixed}, ExtractionError> =>
 x !== null
   ? typeof x === 'object'
     ? !Array.isArray(x)
       ? Ok(x)
-      : Err({path, message: `Expected object, received array.`})
-    : Err({path, message: `Expected object, received ${typeof x}.`})
-  : Err({path, message: `Expected object, received null.`})
+      : exErr(`Expected object, received array.`)
+    : exErr(`Expected object, received ${typeof x}.`)
+  : exErr(`Expected object, received null.`)
 
 export const extractFromKey = <T>(
-  extractor: (path: JSONPath, x: mixed) => Result<T,ExtractionError>,
-  path: JSONPath,
+  extractor: (x: mixed) => Result<T,ExtractionError>,
   key: string,
   obj: {[string]: mixed}
 ): Result<T,ExtractionError> =>
 obj.hasOwnProperty(key)
-  ? extractor([...path, key], obj[key])
-  : Err({path, message: `Expected key "${key}" is not present.`})
+  ? prependToPath(key, extractor(obj[key]))
+  : exErr(`Expected key "${key}" is not present.`)
