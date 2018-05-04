@@ -10,7 +10,7 @@ export type FieldAssocLists = { required: AssocList<ParsedTypeAST>, optional: As
 type NamedVariants = AssocList<FieldAssocLists>
 type OptField = { required: boolean, type: ParsedTypeAST }
 
-type TypeAST =
+export type TypeAST =
 | {| type: 'string' |} // Prim
 | {| type: 'number' |} // Prim
 | {| type: 'boolean' |} // Prim
@@ -39,12 +39,25 @@ export type ParsedTypeAST =
 export type TypeTag = $PropertyType<TypeAST, 'type'>
 export type TypeDeclarations = { [identifier: string]: ParsedTypeAST }
 
+export type Declarations = {[key: string]: TypeAST}
+export type ParsedDeclarations = AssocList<ParsedTypeAST>
+
 // PARSING
+
+export const parseModule = (
+  decs: Declarations
+): Result<ParsedDeclarations,*> =>
+collectResultArray(
+  toAssocList(decs),
+  ([identifier, ast]) => mapOk(
+    parse(ast),
+    (parsedAst) => [identifier, parsedAst]
+  )
+)
 
 export const parse = (
   ast: TypeAST
-): Result<ParsedTypeAST, string> => {
-
+): Result<ParsedTypeAST, *> => {
   const parseFields = (
     pairs: Array<[string, TypeAST]>
   ): Result<FieldAssocLists, string> => mapOk(

@@ -17,7 +17,7 @@ import {
   disjointUnionTemplate,
   extractorFunctionIdGen
 } from './codeTemplates'
-import { type ParsedDeclarations } from '../structures/module'
+import { type ParsedDeclarations } from '../structures/ast'
 
 type Code = string
 
@@ -26,7 +26,7 @@ type ExtractorParam =
 | {| kind: 'application', xStmt: Code |}
 
 const ab: ExtractorParam = { kind: 'abstraction' }
-const ap = (pathStmt: Code, xStmt: Code): ExtractorParam => ({ kind: 'application', xStmt})
+const app = (xStmt: Code): ExtractorParam => ({ kind: 'application', xStmt})
 
 const exParamFork = (
   abStmt: Code,
@@ -92,7 +92,7 @@ export const genExtractor = (
     const exId = 'extractNullableOf'
     const code = genExtractor(ab, ast.arg)
     return exParamFork(
-      `(path: JSONPath, x: mixed) => ${exId}(\n${indent(code)},\n  x\n)`,
+      `(path: JSONPointer, x: mixed) => ${exId}(\n${indent(code)},\n  x\n)`,
       (xStmt) => `${exId}(\n${indent(code)},\n  ${xStmt}\n)`,
       exParam
     )
@@ -113,7 +113,7 @@ export const genExtractor = (
     ast.fields
     .map(
       (field: ParsedTypeAST, i: number) =>
-        tupleResDeclarationTemplate(i, genExtractor(ap(`[...path, ${i}]`, `x[${i}]`), field))
+        tupleResDeclarationTemplate(i, genExtractor(app(`x[${i}]`), field))
     )
     .join('\n')
     const abStmt = tupleTemplate(ast.fields.length, resStatements)
@@ -162,7 +162,7 @@ export const genExtractor = (
   } else if (ast.type === 'enum') {
     const checks: Code = ast.variants.map((literal) => `s === '${literal}'`).join(' || ')
     const list: Code = ast.variants.map((literal) => `"${literal}"`).join(', ')
-    const abStmt = `(path: JSONPath, x: mixed) => andThen(\n  extractString(path, x),\n  (s) => (${checks})\n    ? Ok(s)\n    : Err({path, message: \`String value "\${s}" is not one of: ${list}.\`})\n)`
+    const abStmt = `(path: JSONPointer, x: mixed) => andThen(\n  extractString(path, x),\n  (s) => (${checks})\n    ? Ok(s)\n    : Err({path, message: \`String value "\${s}" is not one of: ${list}.\`})\n)`
     return exParamFork(
       abStmt,
       (xStmt) => `(${abStmt})(${xStmt})`,

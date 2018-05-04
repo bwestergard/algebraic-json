@@ -10,11 +10,13 @@ import {
   type Result
 } from './result'
 
-type JSONPathElement = string | number
-export type JSONPath = Array<JSONPathElement>
+// This should be serialized as specified in RFC 6901
+// https://tools.ietf.org/html/rfc6901
+type JSONPointerReferenceToken = string | number
+export type JSONPointer = Array<JSONPointerReferenceToken>
 
 export type ExtractionError = {|
-  +path: JSONPath,
+  +path: JSONPointer,
   +message: string
 |}
 
@@ -26,7 +28,7 @@ export const exErr = <T>(
 })
 
 const prependToPath = <T>(
-  pathPrefixEl: JSONPathElement,
+  pathPrefixEl: JSONPointerReferenceToken,
   result: Result<T,ExtractionError>
 ): Result<T,ExtractionError> =>
 mapErr(
@@ -71,7 +73,7 @@ andThen(
   )
 )
 
-export const extractDictionary = <T>(
+export const extractDictionaryOf = <T>(
   extractor: (x: mixed) => Result<T,ExtractionError>,
   x: mixed
 ): Result<{[string]: T}, ExtractionError> =>
@@ -111,3 +113,10 @@ export const extractFromKey = <T>(
 obj.hasOwnProperty(key)
   ? prependToPath(key, extractor(obj[key]))
   : exErr(`Expected key "${key}" is not present.`)
+
+export const extractFromIndex = <T>(
+  extractor: (x: mixed) => Result<T,ExtractionError>,
+  index: number,
+  arr: Array<mixed>
+): Result<T,ExtractionError> =>
+prependToPath(index, extractor(arr[index]))

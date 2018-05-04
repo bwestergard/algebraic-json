@@ -2,7 +2,7 @@
 
 import { genFlowTypeDec } from './genFlowTypeDec'
 import { genExtractor } from './genExtractor'
-import { type ParsedDeclarations } from '../structures/module'
+import { type ParsedDeclarations } from '../structures/ast'
 import {
   extractorModuleTemplate,
   extractorFunctionIdGen,
@@ -10,7 +10,7 @@ import {
   extractorFuncDecTemplate
 } from './codeTemplates'
 
-const genModule = (
+export const genModule = (
   typeDeclarations: ParsedDeclarations
 ): string => {
   const flowDecs = typeDeclarations
@@ -28,28 +28,3 @@ const genModule = (
   .join('\n')
   return extractorModuleTemplate(flowDecs, extractors)
 }
-
-console.log(
-  genModule(
-    [
-      ['orders', {type: 'array', arg: {type: 'record', fields: {
-        optional: [],
-        required: [
-          ['buyer', {type: 'reference', name: 'person'}],
-          ['consumer', {type: 'reference', name: 'person'}],
-          ['cost', {type: 'number'}]
-        ]
-      }}}],
-      ['person', {type: 'record', fields: {
-        optional: [
-          ['middleName', {type: 'string'}],
-          ['alterEgos', {type: 'array', arg: {type: 'array', arg: {type: 'array', arg: {type: 'reference', name: 'person'}}}}]
-        ],
-        required: [
-          ['firstName', {type: 'string'}],
-          ['lastName', {type: 'string'}]
-        ]
-      }}]
-    ]
-  )
-)

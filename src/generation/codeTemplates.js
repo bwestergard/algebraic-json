@@ -216,12 +216,12 @@ import \{
   extractMixedArray,
   extractMixedObject,
   extractArrayOf,
-  extractDictionary,
+  extractDictionaryOf,
   extractNullableOf,
   extractFromKey,
   exErr,
   type ExtractionError,
-  type JSONPath
+  type JSONPointer
 \} from './extractors'
 
 ${flowDecs}
